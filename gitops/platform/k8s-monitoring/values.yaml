@@ -47,7 +47,7 @@ destinations:
       usernameFrom: sys.env("GC_PROM_USER")
       passwordFrom: sys.env("GC_TOKEN")
     secret:
-      create: false
+      embed: true # credenciales por sys.env; sin esto Alloy busca un Secret del chart
   grafanaCloudLogs:
     type: loki
     urlFrom: sys.env("GC_LOKI_URL")
@@ -56,7 +56,7 @@ destinations:
       usernameFrom: sys.env("GC_LOKI_USER")
       passwordFrom: sys.env("GC_TOKEN")
     secret:
-      create: false
+      embed: true # credenciales por sys.env; sin esto Alloy busca un Secret del chart
   grafanaCloudTraces:
     type: otlp
     protocol: http
@@ -66,7 +66,7 @@ destinations:
       usernameFrom: sys.env("GC_OTLP_USER")
       passwordFrom: sys.env("GC_TOKEN")
     secret:
-      create: false
+      embed: true # credenciales por sys.env; sin esto Alloy busca un Secret del chart
     metrics: { enabled: false }
     logs: { enabled: false }
     traces: { enabled: true }

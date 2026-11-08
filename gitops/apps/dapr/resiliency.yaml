@@ -8,7 +8,6 @@ spec:
     retries:
       deliver:
         policy: exponential
-        initialInterval: 500ms
         maxInterval: 10s
         maxRetries: 3
   targets:

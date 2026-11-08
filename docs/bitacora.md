@@ -20,7 +20,7 @@ Registro de lo ejecutado durante el despliegue del laboratorio, en orden. Solo i
 | 10 | Secretos en AWS | Completado |
 | 11 | Mirror de imágenes | Completado |
 | 12 | Dashboards de Grafana | Completado |
-| 13 | Primer despliegue (`lab.yml up`) | Pendiente |
+| 13 | Primer despliegue (`lab.yml up`) | En curso |
 
 | Área | Situación actual |
 |---|---|
@@ -294,6 +294,24 @@ Al relanzarlo, `nats` y `nats-server-config-reloader` entraron, y el mismo error
 - **Confirmado:** aplicado con `bootstrap.sh`. Los 3 roles tienen el nuevo `sub` y `observability.yml` ya entra en AWS y completa `terraform init` y `plan`.
 
 **7. La service account de Grafana no tenía permisos suficientes.** `terraform apply` falló con 403, pidiendo `folders:read` y `datasources:create`. La guía indicaba el rol **Editor**, que no basta para crear datasources; se corrigió a **Admin**.
+
+**8. `terraform apply` falló al crear el ASG en el primer despliegue.** El mensaje fue `Authentication Failure. Launching EC2 instance failed`.
+
+- **Causa:** era el primer ASG de la cuenta. AWS creó el rol `AWSServiceRoleForAutoScaling` a las 21:37:00 UTC y el primer lanzamiento, 3 segundos después, falló porque el rol aún no se había propagado. El ASG reintentó a los 60 segundos con éxito.
+- **Efecto:** Terraform dio el ASG por fallido y lo marcó `tainted`, aunque funciona. Faltó 1 de 59 recursos, la conexión entre el ASG y el NLB.
+- **No se repite:** ese rol es permanente en la cuenta y no se borra con `terraform destroy`.
+- **Resolución:** quitar la marca `tainted` para no sustituir un worker sano en pleno arranque, y relanzar `lab.yml up`.
+
+**9. Cuatro defectos que solo aparecieron en el cluster real.** Tras `lab.yml up`, los nodos, Argo CD, Traefik y el NLB funcionaban, y el destino del NLB estaba `healthy`, pero quedó bloqueado el resto:
+
+| Síntoma | Causa | Corrección |
+|---|---|---|
+| Redis, NATS y Dapr Scheduler en `Pending` | El pod auxiliar de `local-path` no tolera el taint `NoExecute` del control plane y Kubernetes lo expulsa, así que ningún volumen se crea | `user-data` añade la toleration y reinicia el provisionador. Debe aplicarse también en el cluster en marcha |
+| `fake-llm` en `Pending` | Helm fusiona el `nodeSelector` del chart con el del servicio y exige dos nodos a la vez | `platform.io/pool: null` en sus values |
+| Alloy en `CrashLoopBackOff` | Con `create: false`, el chart busca un Secret propio inexistente | `secret.embed: true`; las credenciales siguen llegando por `sys.env` |
+| `fleet-dapr-components` sin sincronizar | `initialInterval` no existe en el CRD `Resiliency` | Campo eliminado |
+
+Comprobado en local: `helm template` deja 0 referencias a `remote.kubernetes.secret` y el `nodeSelector` correcto en `fake-llm`; el `sed` de la toleration da el YAML esperado; `bash -n` y `terraform validate` pasan.
 
 ### Correcciones en la guía
 
