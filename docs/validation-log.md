@@ -120,7 +120,7 @@ Commit `28f30ec`, modo simulado, carga desde la máquina del operador hacia el N
 | 9 | Registro en el NLB | OK | 2 destinos `healthy` |
 | 10 | Distribución | FALLA | `rc=23` con la plataforma saturada; repetir |
 
-**Saturación observada:** con los workers al límite del ASG (97 % de CPU en uno), los 3 pods de `analyst` quedaron `Pending`, sin ninguna réplica en marcha. `orchestrator` sufrió `OOMKilled` con su límite de 256 Mi, `llm-gateway` perdió una réplica y `POST /tasks` devolvió `503`. Un contenedor de k6 de la demo siguió generando carga tras terminar el script.
+**Saturación observada:** con los workers al límite del ASG (97 % de CPU en uno), los 3 pods de `analyst` quedaron `Pending`, sin ninguna réplica en marcha. El sidecar `daprd` de `orchestrator` sufrió `OOMKilled` con su límite de 128 Mi, con unas 161 000 claves de workflows en Redis tras 8 minutos de carga; `llm-gateway` perdió una réplica y `POST /tasks` devolvió `503`. Un contenedor de k6 de la demo siguió generando carga tras terminar el script.
 
 ## Ejemplo de ejercicios en Go (2026-11-08)
 

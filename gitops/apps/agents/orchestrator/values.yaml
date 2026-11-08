@@ -16,9 +16,11 @@ secretEnv:
   - {name: DEMO_TOKEN, key: DEMO_TOKEN}
 resources:
   requests: {cpu: 100m, memory: 128Mi}
-  limits: {memory: 512Mi} # con 256Mi sufrió OOMKilled bajo carga real
+  limits: {memory: 256Mi}
 dapr:
   maxConcurrency: 10
+  # daprd reproduce el historial de los workflows: con 128Mi sufrió OOMKilled bajo carga real.
+  sidecar: {memoryRequest: 128Mi, memoryLimit: 512Mi}
 externalSecret:
   enabled: true
   data:

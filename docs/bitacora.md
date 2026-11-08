@@ -338,11 +338,11 @@ Comprobado en local: `helm template` deja 0 referencias a `remote.kubernetes.sec
 - **Corrección:** anotación `dapr.io/disable-builtin-k8s-secret-store: "true"`. Mantiene los pods sin token, y las referencias `secretKeyRef` las resuelve el operador de Dapr.
 - **Confirmado:** la primera tarea real se completó, así que `workflowstore` recibe su contraseña de Redis.
 
-**11. Saturación bajo carga real.** Tras la rampa de k6, el escalado de nodos funcionó (de 1 a 2 workers, los dos `healthy` en el NLB), pero la flota se degradó: `orchestrator` en `OOMKilled`, `analyst` sin capacidad y `503` en `/tasks`. Detalle en el [registro de validación](validation-log.md#escenarios-de-demo-en-aws-2026-11-08).
+**11. Saturación bajo carga real.** Tras la rampa de k6, el escalado de nodos funcionó (de 1 a 2 workers, los dos `healthy` en el NLB), pero la flota se degradó: el sidecar `daprd` de `orchestrator` en `OOMKilled`, `analyst` sin capacidad y `503` en `/tasks`. Detalle en el [registro de validación](validation-log.md#escenarios-de-demo-en-aws-2026-11-08).
 
 **12. El script de demo deja k6 en ejecución.** Su `trap` mata el cliente de Docker, pero no el contenedor. Se detuvo a mano y se añadió `k6_stop` a los scripts.
 
-**Corrección de las incidencias 11 y 12:** límite de memoria de `orchestrator` a 512 Mi y `executor` limitado a 4 réplicas. No añade máquinas y reduce el consumo máximo de CPU.
+**Corrección de las incidencias 11 y 12:** límite de memoria del sidecar `daprd` de `orchestrator` a 512 Mi y `executor` limitado a 4 réplicas. Un primer ajuste aumentó por error la memoria de la aplicación, que no era la que fallaba, y se revirtió. No añade máquinas y reduce el consumo máximo de CPU.
 
 ### Correcciones en la guía
 
