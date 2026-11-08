@@ -2,7 +2,7 @@
 
 Cómo abrir las interfaces y seguir el sistema capa a capa con el laboratorio encendido. Sirve para ensayos y para la defensa.
 
-> **Estado a 2026-11-08.** Están comprobados en AWS los nodos, Argo CD, Traefik, el NLB, los volúmenes, NATS, Redis, Dapr y External Secrets. **Falta comprobar** una tarea completa en el cluster, la telemetría en Grafana, el escalado de nodos y los escenarios de demo. Si un paso falla, consulta [Diagnóstico rápido](#8-diagnóstico-rápido) y anótalo en la [bitácora](bitacora.md).
+> **Estado a 2026-11-08.** Están comprobados en AWS los nodos, Argo CD, Traefik, el NLB, los volúmenes, NATS, Redis, Dapr, External Secrets, una tarea completa por el NLB y las métricas en Grafana. **Falta comprobar** los logs y trazas, el escalado de nodos y los escenarios de demo. Si un paso falla, consulta [Diagnóstico rápido](#8-diagnóstico-rápido) y anótalo en la [bitácora](bitacora.md).
 
 Todos los comandos son para **Git Bash**, desde la raíz del repositorio.
 

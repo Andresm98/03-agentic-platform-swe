@@ -7,7 +7,7 @@ source "$ROOT/apps/scripts/demo-helpers.sh"
 require_cmd kubectl curl
 require_cmd docker
 pf="$(pf_service fake-llm 18003)"
-trap 'kill "$pf" 2>/dev/null || true' EXIT
+trap 'k6_stop; kill "$pf" 2>/dev/null || true' EXIT
 sleep 2
 step "Inyección de fallos"
 curl -sf -X PUT http://127.0.0.1:18003/admin/faults -H 'content-type: application/json' -d '{"error_rate_500":0.3,"latency_median_ms":800}'; echo

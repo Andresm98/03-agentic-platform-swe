@@ -16,7 +16,7 @@ secretEnv:
   - {name: DEMO_TOKEN, key: DEMO_TOKEN}
 resources:
   requests: {cpu: 100m, memory: 128Mi}
-  limits: {memory: 256Mi}
+  limits: {memory: 512Mi} # con 256Mi sufrió OOMKilled bajo carga real
 dapr:
   maxConcurrency: 10
 externalSecret:

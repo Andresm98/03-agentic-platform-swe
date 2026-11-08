@@ -5,6 +5,7 @@ NS="${NS:-apps}"
 K="${KUBECTL:-kubectl}"
 HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export K6_IMAGE="${K6_IMAGE:-grafana/k6:1.8.2}"
+export K6_CONTAINER="${K6_CONTAINER:-agentic-k6-demo}"
 
 # scrape <pod> <puerto-local>: imprime /metrics de un pod.
 scrape() {
@@ -50,5 +51,9 @@ k6_run() {
   for v in "$@"; do envs+=(-e "$v"); done
   # En Git Bash, MSYS convertiría /k6/... en C:/Program Files/Git/k6/...
   host_dir="$(cd "$HELPER_DIR/../loadgen/k6" && { pwd -W 2>/dev/null || pwd; })"
-  MSYS_NO_PATHCONV=1 docker run --rm --network host -v "$host_dir:/k6:ro" "${envs[@]}" "$K6_IMAGE" run "/k6/$script"
+  k6_stop
+  MSYS_NO_PATHCONV=1 docker run --rm --name "$K6_CONTAINER" --network host -v "$host_dir:/k6:ro" "${envs[@]}" "$K6_IMAGE" run "/k6/$script"
 }
+
+# k6_stop: detiene el contenedor de carga; matar el cliente de docker no basta.
+k6_stop() { docker stop -t 2 "$K6_CONTAINER" >/dev/null 2>&1 || true; }

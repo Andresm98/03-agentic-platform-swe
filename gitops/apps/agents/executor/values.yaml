@@ -23,7 +23,7 @@ externalSecret:
 keda:
   enabled: true
   minReplicaCount: 1
-  maxReplicaCount: 8
+  maxReplicaCount: 4 # con 8 acaparaba la CPU de los workers y dejaba sin sitio a analyst
   cpu:
     enabled: true
     utilization: 60

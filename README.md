@@ -12,7 +12,7 @@ Los agentes son la carga que pone a prueba la plataforma: colas, reintentos, esc
 
 ## Estado real
 
-Actualizado el 2026-11-08. **El laboratorio todavía no se ha desplegado en AWS.** Solo se afirma lo que tiene evidencia en la [bitácora de despliegue](docs/bitacora.md) o en el [registro de validación](docs/validation-log.md).
+Actualizado el 2026-11-08. **El laboratorio ya funciona en AWS y atiende tareas reales por el NLB.** Solo se afirma lo que tiene evidencia en la [bitácora de despliegue](docs/bitacora.md) o en el [registro de validación](docs/validation-log.md).
 
 | Área | Estado | Evidencia |
 |---|---|---|
@@ -25,9 +25,10 @@ Actualizado el 2026-11-08. **El laboratorio todavía no se ha desplegado en AWS.
 | Capa persistente de AWS | ✅ Desplegada | Terraform sin diferencias |
 | Mirror de imágenes de plataforma | ✅ Probado | 6 imágenes copiadas con su digest y descargables sin login |
 | Cluster local en k3d y pruebas k6 | ⏳ Sin probar | Los escenarios de demo aún no se han ejecutado |
-| `lab.yml up`: EC2, K3s y Argo CD | ⏳ Sin probar | |
-| Balanceo por NLB y autoscaling de nodos | ⏳ Sin probar | Exige ver un EC2 real unirse al cluster |
-| Telemetría en Grafana Cloud | ⏳ Sin probar | Requiere el cluster en marcha |
+| `lab.yml up`: EC2, K3s y Argo CD | ✅ Probado | Nodos `Ready` y aplicaciones sincronizadas por GitOps |
+| Tarea completa por el NLB | ✅ Probado | Orquestador y 3 agentes en 23 s, con KEDA escalando desde cero |
+| Autoscaling de nodos | ⏳ Sin probar | Exige ver un EC2 real unirse al cluster |
+| Telemetría en Grafana Cloud | ⚠️ Parcial | Métricas confirmadas; faltan logs y trazas |
 | Modelo real de OpenAI y LangSmith | ⏳ Sin probar | |
 | Flujo de ejercicios en la rama `stage` | ⏳ Sin probar | Probado solo por partes |
 
@@ -87,7 +88,7 @@ Más vistas (C4, red, secuencia de una tarea y cadena de elasticidad) en el [pla
 | `orchestrator` | API pública, admisión y Dapr Workflow | 1–4 |
 | `researcher` | Consulta una base de conocimiento local | 0–3 |
 | `analyst` | Puntuación determinista del resultado | 0–3 |
-| `executor` | Trabajo de CPU de un catálogo cerrado | 1–8 |
+| `executor` | Trabajo de CPU de un catálogo cerrado | 1–4 |
 | `llm-gateway` | Único servicio con la API key: modo, presupuesto, circuit breaker y telemetría | 2 |
 | `fake-llm` | API compatible con OpenAI, determinista y con inyección de fallos | 1 |
 

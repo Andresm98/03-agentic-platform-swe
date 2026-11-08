@@ -103,6 +103,25 @@ Nota: `docker compose restart` no sirve para esta prueba. Con `network_mode: ser
 
 Sin probar: `exercises.yml` en GitHub Actions (no hay actionlint local), ApplicationSet, `AppProject`, `ValidatingAdmissionPolicy`, cuota y Traefik con prefijo en un cluster con Argo CD.
 
+## Escenarios de demo en AWS (2026-11-08)
+
+Commit `28f30ec`, modo simulado, carga desde la máquina del operador hacia el NLB.
+
+| # | Escenario | Resultado | Evidencia |
+|---|---|---|---|
+| 1 | Despliegue | OK | 9 asserts: aplicaciones `Synced/Healthy` y `POST /tasks` 202 |
+| 2 | Sync GitOps | OK | El pod corre la imagen del commit promovido |
+| 3 | Self-healing | OK | Pod restaurado en 7 s; cambio manual de réplicas revertido en 7 s |
+| 4 | Tráfico | OK con reservas | k6, 8 min, 20 VUs: 4200 peticiones, 0 % de errores HTTP, p95 1,73 s, 0 tokens `live`. La plataforma quedó saturada al terminar (ver abajo) |
+| 5 | HPA | OK | `executor` en 8 réplicas, con la carga del escenario 4 |
+| 6 | Pending | OK | `FailedScheduling: Insufficient cpu`, generado por el escenario 4 |
+| 7 | Cluster Autoscaler | NO VALIDADO por script | Falló su precondición (`DesiredCapacity` inicial 2). Evidencia manual: `TriggeredScaleUp` 1→2 e instancia lanzada a las 23:05:53 UTC |
+| 8 | Join de K3s | OK | 5 asserts: `providerID` `aws:///` y nodo `Ready` |
+| 9 | Registro en el NLB | OK | 2 destinos `healthy` |
+| 10 | Distribución | FALLA | `rc=23` con la plataforma saturada; repetir |
+
+**Saturación observada:** con los workers al límite del ASG (97 % de CPU en uno), los 3 pods de `analyst` quedaron `Pending`, sin ninguna réplica en marcha. `orchestrator` sufrió `OOMKilled` con su límite de 256 Mi, `llm-gateway` perdió una réplica y `POST /tasks` devolvió `503`. Un contenedor de k6 de la demo siguió generando carga tras terminar el script.
+
 ## Ejemplo de ejercicios en Go (2026-11-08)
 
 `exercises/_ejemplo` pasó de Python a Go 1.27.3. `gofmt -l` sin diferencias; 18 tests del validador OK; imagen de 15,7 MB; con `--read-only --user 10001 --cap-drop ALL`, `/`, `/healthz`, `/readyz` y `/metrics` dan 200 y `/nope` 404; `SIGTERM` limpio; un test roto hace fallar el build; `kind-smoke.sh` correcto con Pod Security `restricted`.

@@ -379,7 +379,7 @@ Ningún workflow aplica nada al cluster: el cluster solo cambia porque Argo CD l
 ```mermaid
 flowchart TB
   load["Más tareas por el NLB"] --> q["Crece num_pending en JetStream"]
-  q --> keda["KEDA ajusta el HPA: más réplicas, Ejecución hasta 8"]
+  q --> keda["KEDA ajusta el HPA: más réplicas, Ejecución hasta 4"]
   keda --> fit{"¿Caben en los workers?"}
   fit -->|sí| run["Pods Running"]
   fit -->|no| pend["Pods Pending: Insufficient cpu"]
@@ -430,7 +430,7 @@ Allocatable aproximado de un t3.medium: unos 1.9 vCPU y 3.3 GiB.
 
 - Los agentes LLM piden poca CPU porque pasan casi todo el tiempo esperando al modelo. El **agente de ejecución** es el que llena los nodos.
 - Worker 1: caben unos 2 agentes de ejecución. Worker 2: unos 3. Total con el ASG al máximo: unos 5.
-- Con KEDA en `max 8`, la carga produce la secuencia: Pending → CA lanza el worker 2 → algunos se programan → **unos 3 siguen en Pending con el ASG al máximo**. Así se demuestra el escalado y también el límite duro de 3 EC2.
+- Con KEDA en `max 4`, la carga produce la secuencia: Pending en el worker 1 → CA lanza el worker 2 → todos se programan. Con `max 8` el agente de ejecución acaparaba la CPU y dejaba sin sitio al análisis (validation-log, escenarios en AWS).
 - Los valores exactos se calibran en la Fase H midiendo el allocatable real (`kubectl describe node`).
 
 ScaledObject del agente de ejecución (KEDA): min 1, max 8, triggers CPU al 60 % del request (300m) y `num_pending` de su consumidor JetStream. `behavior.scaleUp` de +2 pods cada 30 s (visible en la demo). `scaleDown.stabilizationWindowSeconds: 120` en laboratorio.

@@ -10,7 +10,7 @@ step "Carga sostenida"
 BASE="$(base_url)"
 k6_run ramp.js "BASE_URL=$BASE" >/tmp/demo06.log 2>&1 &
 K6=$!
-trap 'kill "$K6" 2>/dev/null || true' EXIT
+trap 'k6_stop; kill "$K6" 2>/dev/null || true' EXIT
 step "Evento FailedScheduling"
 wait_until 420 bash -c "kubectl -n apps get events --field-selector reason=FailedScheduling -o jsonpath='{.items[*].message}' | grep -q 'Insufficient cpu'"
 demo_summary

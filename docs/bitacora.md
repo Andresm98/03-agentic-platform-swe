@@ -20,11 +20,12 @@ Registro de lo ejecutado durante el despliegue del laboratorio, en orden. Solo i
 | 10 | Secretos en AWS | Completado |
 | 11 | Mirror de imágenes | Completado |
 | 12 | Dashboards de Grafana | Completado |
-| 13 | Primer despliegue (`lab.yml up`) | En curso |
+| 13 | Primer despliegue (`lab.yml up`) | Completado: primera tarea real terminada por el NLB |
+| 14 | Escenarios de demo | Pendiente |
 
 | Área | Situación actual |
 |---|---|
-| Laboratorio en AWS | Sin desplegar: 0 instancias, 0 balanceadores |
+| Laboratorio en AWS | Encendido desde las 21:36 UTC: control plane, 1 worker y NLB con destino `healthy`. `lab-reaper` lo destruye a las 6 horas |
 | Parámetros SSM | 12, todos `SecureString` |
 | Capa persistente | Creada y sin diferencias con Terraform |
 | `origin/main` | `730996a`, con los 6 servicios promovidos correctamente |
@@ -262,6 +263,24 @@ Cargados con `infra/scripts/seed-secrets.sh`, con las contraseñas internas gene
 
 **Sin comprobar:** que el datasource consulte CloudWatch, porque el rol de AWS se crea con el despliegue. Los dashboards estarán vacíos hasta que el cluster envíe datos.
 
+### Paso 13: primer despliegue
+
+Requirió dos ejecuciones de `lab.yml` (incidencia 8) y las correcciones de las incidencias 9 y 10.
+
+**Primera tarea real, 22:52 UTC, por el NLB y en modo simulado:**
+
+| Comprobación | Resultado |
+|---|---|
+| `POST /tasks` | `202`, `mode: simulated` |
+| Estado final | `completed` en 23 segundos, sin degradación |
+| Pasos | `researcher`, `executor` y `analyst`, los tres `status: ok` |
+| Evaluación del analista | 90, `pass` |
+| Escalado desde cero | `researcher` y `analyst` arrancaron con KEDA para atender la tarea |
+
+**Métricas y logs en Grafana Cloud confirmados:** paneles del dashboard *Kubernetes* y consulta de la tarea por su `task_id` en Loki.
+
+**Sin comprobar:** trazas en Grafana, LangSmith, modelo real, escalado de nodos y los 15 escenarios de demo.
+
 ### Incidencias
 
 **1. La promoción GitOps corrompió los valores (corregida).** `_gitops-promote.yml` ejecutaba un solo `yq -i` con seis archivos, y `yq` fusiona todos en el primero.
@@ -317,7 +336,13 @@ Comprobado en local: `helm template` deja 0 referencias a `remote.kubernetes.sec
 
 - **Causa:** el chart no monta el token de ServiceAccount, a propósito, y el almacén de secretos integrado de Dapr lo necesita al iniciar.
 - **Corrección:** anotación `dapr.io/disable-builtin-k8s-secret-store: "true"`. Mantiene los pods sin token, y las referencias `secretKeyRef` las resuelve el operador de Dapr.
-- **Falta:** confirmar en el cluster que `workflowstore` recibe su contraseña.
+- **Confirmado:** la primera tarea real se completó, así que `workflowstore` recibe su contraseña de Redis.
+
+**11. Saturación bajo carga real.** Tras la rampa de k6, el escalado de nodos funcionó (de 1 a 2 workers, los dos `healthy` en el NLB), pero la flota se degradó: `orchestrator` en `OOMKilled`, `analyst` sin capacidad y `503` en `/tasks`. Detalle en el [registro de validación](validation-log.md#escenarios-de-demo-en-aws-2026-11-08).
+
+**12. El script de demo deja k6 en ejecución.** Su `trap` mata el cliente de Docker, pero no el contenedor. Se detuvo a mano y se añadió `k6_stop` a los scripts.
+
+**Corrección de las incidencias 11 y 12:** límite de memoria de `orchestrator` a 512 Mi y `executor` limitado a 4 réplicas. No añade máquinas y reduce el consumo máximo de CPU.
 
 ### Correcciones en la guía
 
