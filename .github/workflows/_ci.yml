@@ -1,0 +1,111 @@
+# Etapa 1: calidad del código de apps/. Sin llamadas a OpenAI: todo usa fakes.
+name: _ci
+
+on:
+  workflow_call:
+    secrets:
+      SONAR_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: apps
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          python-version: "3.11"
+      - run: uv sync --frozen --all-packages
+      - run: uv run --frozen ruff format --check .
+      - run: uv run --frozen ruff check .
+      - name: Contratos de arquitectura (import-linter)
+        run: uv run --frozen lint-imports
+      - name: Tipos (mypy estricto)
+        env:
+          PYTHONPATH: common/agentlib/src:agents/orchestrator/src:agents/researcher/src:agents/analyst/src:agents/executor/src:llm-gateway/src:fake-llm/src
+        run: >-
+          uv run --frozen mypy common/agentlib/src/agentlib agents/orchestrator/src/orchestrator
+          agents/researcher/src/researcher agents/analyst/src/analyst agents/executor/src/executor
+          llm-gateway/src/llm_gateway fake-llm/src/fake_llm
+
+  test:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { service: agentlib, dir: common/agentlib, module: agentlib }
+          - { service: orchestrator, dir: agents/orchestrator, module: orchestrator }
+          - { service: researcher, dir: agents/researcher, module: researcher }
+          - { service: analyst, dir: agents/analyst, module: analyst }
+          - { service: executor, dir: agents/executor, module: executor }
+          - { service: llm-gateway, dir: llm-gateway, module: llm_gateway }
+          - { service: fake-llm, dir: fake-llm, module: fake_llm }
+    defaults:
+      run:
+        working-directory: apps
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          python-version: "3.11"
+      - run: uv sync --frozen --all-packages
+      - name: pytest con cobertura >= 80 %
+        env:
+          DIR: ${{ matrix.dir }}
+          MODULE: ${{ matrix.module }}
+          LLM_GLOBAL_MODE: simulated
+        run: >-
+          uv run --frozen pytest "$DIR/tests" --cov="$MODULE" --cov-report=term
+          --cov-report="xml:coverage-$MODULE.xml" --cov-fail-under=80
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-${{ matrix.service }}
+          path: apps/coverage-*.xml
+          retention-days: 3
+
+  sonar:
+    needs: [test]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      # Un solo análisis: el proyecto de SonarCloud es único y varios en matriz se pisarían.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.SONAR_TOKEN != ''
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: env.SONAR_TOKEN != ''
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: apps
+      - uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
+        if: env.SONAR_TOKEN != ''
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          # TODO(verify): projectKey y organization al crear el proyecto en SonarCloud.
+          args: >-
+            -Dsonar.projectKey=Andresm98_03-agentic-platform-swe
+            -Dsonar.organization=andresm98
+            -Dsonar.sources=apps
+            -Dsonar.exclusions=apps/**/tests/**,apps/.venv/**
+            -Dsonar.python.coverage.reportPaths=apps/coverage-*.xml
+      - if: env.SONAR_TOKEN == ''
+        run: echo "::notice::Sin SONAR_TOKEN (PR de fork o secreto no configurado); análisis omitido."

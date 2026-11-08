@@ -1,0 +1,93 @@
+{{- $name := include "agent-service.name" . -}}
+{{- if not .Values.image.repository }}{{ fail "image.repository es obligatorio" }}{{ end -}}
+{{- if eq .Values.image.tag "latest" }}{{ fail "image.tag no puede ser latest" }}{{ end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: {{- include "agent-service.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.keda.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels: {{- include "agent-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "agent-service.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.containerPort | quote }}
+        prometheus.io/path: /metrics
+        {{- if .Values.dapr.enabled }}
+        dapr.io/enabled: "true"
+        dapr.io/app-id: {{ $name | quote }}
+        dapr.io/app-port: {{ .Values.containerPort | quote }}
+        dapr.io/config: {{ .Values.dapr.config | quote }}
+        dapr.io/log-as-json: "true"
+        dapr.io/app-max-concurrency: {{ .Values.dapr.maxConcurrency | quote }}
+        dapr.io/sidecar-cpu-request: {{ .Values.dapr.sidecar.cpuRequest | quote }}
+        dapr.io/sidecar-memory-request: {{ .Values.dapr.sidecar.memoryRequest | quote }}
+        dapr.io/sidecar-cpu-limit: {{ .Values.dapr.sidecar.cpuLimit | quote }}
+        dapr.io/sidecar-memory-limit: {{ .Values.dapr.sidecar.memoryLimit | quote }}
+        {{- if .Values.dapr.natsUrlFromSecret }}
+        dapr.io/env-from-secret: {{ printf "NATS_URL=%s:NATS_URL" (include "agent-service.secretName" .) | quote }}
+        {{- end }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          ports:
+            - { name: http, containerPort: {{ .Values.containerPort }} }
+          envFrom:
+            - configMapRef: { name: {{ $name }} }
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            {{- range .Values.secretEnv }}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "agent-service.secretName" $ }}
+                  key: {{ .key }}
+            {{- end }}
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            {{- toYaml .Values.probes.startup | nindent 12 }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            {{- toYaml .Values.probes.liveness | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            {{- toYaml .Values.probes.readiness | nindent 12 }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { medium: Memory, sizeLimit: 32Mi }

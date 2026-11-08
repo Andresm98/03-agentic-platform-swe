@@ -1,0 +1,85 @@
+# Contrato con el equipo A: una Application crea GitHub Deployments si lleva la label
+# agentic.io/github-deployment: "true" y tiene UNA sola fuente Git (spec.source).
+# El Deployment (environment aws-lab) dispara post-deploy.yml vía deployment_status.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  labels:
+    app.kubernetes.io/part-of: argocd
+data:
+  context: |
+    environment: aws-lab
+    repoURL: https://github.com/Andresm98/03-agentic-platform-swe
+    argocdUrl: http://localhost:8080
+
+  service.github: |
+    appID: $github-appID
+    installationID: $github-installationID
+    privateKey: $github-privateKey
+
+  # Sync terminado + Healthy -> Deployment success (una vez por revisión).
+  trigger.on-deployed: |
+    - description: La Application se sincronizó y está Healthy
+      oncePer: app.status.operationState?.syncResult?.revision
+      send: [github-deployment-success]
+      when: app.status.operationState != nil and app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+
+  trigger.on-sync-failed: |
+    - description: La sincronización falló
+      oncePer: app.status.operationState?.syncResult?.revision
+      send: [github-deployment-failure]
+      when: app.status.operationState != nil and app.status.operationState.phase in ['Error', 'Failed']
+
+  trigger.on-health-degraded: |
+    - description: La Application quedó Degraded
+      oncePer: app.status.operationState?.syncResult?.revision
+      send: [github-deployment-failure]
+      when: app.status.health.status == 'Degraded'
+
+  template.github-deployment-success: |
+    message: "{{.app.metadata.name}} sincronizada en {{.app.status.operationState.syncResult.revision}} y Healthy"
+    github:
+      repoURLPath: "{{.context.repoURL}}"
+      revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+      status:
+        state: success
+        label: "argocd/{{.app.metadata.name}}"
+        targetURL: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}"
+      deployment:
+        state: success
+        environment: "{{.context.environment}}"
+        environmentURL: ""
+        logURL: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}"
+        requiredContexts: []
+        autoMerge: false
+        transientEnvironment: false
+        reference: "{{.app.status.operationState.syncResult.revision}}"
+
+  template.github-deployment-failure: |
+    message: "{{.app.metadata.name}}: sync {{.app.status.operationState.phase}}, salud {{.app.status.health.status}}"
+    github:
+      repoURLPath: "{{.context.repoURL}}"
+      revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+      status:
+        state: failure
+        label: "argocd/{{.app.metadata.name}}"
+        targetURL: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}"
+      deployment:
+        state: failure
+        environment: "{{.context.environment}}"
+        environmentURL: ""
+        logURL: "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}"
+        requiredContexts: []
+        autoMerge: false
+        transientEnvironment: false
+        reference: "{{.app.status.operationState.syncResult.revision}}"
+
+  subscriptions: |
+    - recipients:
+        - github
+      triggers:
+        - on-deployed
+        - on-sync-failed
+        - on-health-degraded
+      selector: agentic.io/github-deployment=true

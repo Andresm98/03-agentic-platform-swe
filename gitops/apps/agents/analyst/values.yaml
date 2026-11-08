@@ -1,0 +1,29 @@
+# analyst. image.tag solo lo escribe CI.
+image:
+  repository: ghcr.io/andresm98/agentic-platform/analyst
+  tag: "0.0.0-dev"
+env:
+  LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
+  LLM_MODEL: gpt-4o-mini
+  LLM_MAX_TOKENS: "200"
+  OTEL_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { memory: 256Mi }
+dapr:
+  maxConcurrency: 10
+externalSecret:
+  enabled: true
+  data:
+    - { secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/analyst-password }
+  template:
+    NATS_URL: "nats://analyst:{{ .natsPassword | urlquery }}@nats.nats.svc.cluster.local:4222"
+keda:
+  enabled: true
+  minReplicaCount: 0
+  maxReplicaCount: 3
+networkPolicy:
+  egress:
+    nats: true
+    llmGateway: false

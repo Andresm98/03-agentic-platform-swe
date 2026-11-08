@@ -1,0 +1,54 @@
+# Una Application por directorio de gitops/apps/agents/* (ADR-0001 §2): añadir un agente es añadir
+# un directorio con su values.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: fleet-agents
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+        revision: main
+        directories:
+          - path: gitops/apps/agents/*
+  template:
+    metadata:
+      name: 'fleet-{{ .path.basename }}'
+      labels:
+        app.kubernetes.io/part-of: agentic-platform
+        agentic.io/layer: fleet
+        agentic.io/github-deployment: "true"
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+        targetRevision: main
+        path: kubernetes/charts/agent-service
+        helm:
+          releaseName: '{{ .path.basename }}'
+          valueFiles:
+            - '../../../{{ .path.path }}/values.yaml'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - SkipDryRunOnMissingResource=true
+        retry:
+          limit: 10
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 5m

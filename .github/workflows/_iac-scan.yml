@@ -1,0 +1,98 @@
+# Reutilizable (workflow_call): escaneo de IaC de la Stage 1 de main.yml (ADR-0001 §2).
+# La lógica vive en infra/scripts/validate.sh; cada job ejecuta un paso con STRICT=1.
+name: _iac-scan
+
+on:
+  workflow_call:
+    inputs:
+      checkov_soft_fail:
+        description: "Checkov informa sin bloquear (se pasa a false cuando se estabilice)."
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  STRICT: "1"
+  TERRAFORM_VERSION: "1.14.5"
+  HELM_VERSION: "v4.1.4"
+  KUBECONFORM_VERSION: "v0.8.0"
+  KUBECONFORM_SHA256: "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883"
+  TFLINT_VERSION: "v0.65.0"
+  PYYAML_VERSION: "6.0.3"
+
+jobs:
+  terraform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - name: terraform fmt + validate
+        run: bash infra/scripts/validate.sh terraform
+
+  tflint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+      - name: tflint
+        run: bash infra/scripts/validate.sh tflint
+
+  checkov:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf # v12.1347.0
+        with:
+          directory: .
+          framework: terraform
+          quiet: true
+          soft_fail: ${{ inputs.checkov_soft_fail }}
+
+  shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # shellcheck viene preinstalado en la imagen ubuntu-24.04 del runner.
+      - name: bash -n + shellcheck
+        run: bash infra/scripts/validate.sh shell shellcheck
+
+  manifests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: Instalar PyYAML y kubeconform (verificado por sha256)
+        run: |
+          python3 -m pip install --user "pyyaml==${PYYAML_VERSION}"
+          curl -sSfL -o /tmp/kubeconform.tgz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  /tmp/kubeconform.tgz" | sha256sum -c -
+          sudo tar -xzf /tmp/kubeconform.tgz -C /usr/local/bin kubeconform
+      - name: yaml, kustomize, kubeconform y helm template de la plataforma
+        run: bash infra/scripts/validate.sh yaml kustomize kubeconform helm
+      - name: helm lint de los charts propios
+        run: |
+          shopt -s nullglob
+          for chart in kubernetes/charts/*/; do
+            [ -f "${chart}Chart.yaml" ] && helm lint "$chart"
+          done
+
+  gitleaks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: "false"

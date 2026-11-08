@@ -1,0 +1,47 @@
+# KEDA.
+# Generado con la misma plantilla que el resto de platform-*.yaml: values comunes en
+# gitops/platform/keda/, overlay por cluster en gitops/clusters/<cluster>/values/keda.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-keda
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://kedacore.github.io/charts
+      chart: keda
+      targetRevision: 2.21.0
+      helm:
+        releaseName: keda
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/gitops/platform/keda/values.yaml
+          - $values/gitops/clusters/aws-lab/values/keda.yaml
+    - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keda
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

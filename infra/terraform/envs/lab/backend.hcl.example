@@ -1,0 +1,2 @@
+# Copiar a backend.hcl o pasar -backend-config=bucket=... (output state_bucket de bootstrap).
+bucket = "agentic-platform-tfstate-000000000000"

@@ -1,0 +1,29 @@
+# App-of-apps del perfil local (la aplica scripts/local/k3d.sh). Equivale a
+# gitops/root-app.yaml pero sobre el overlay local-k3d.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/cluster: local-k3d
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+    targetRevision: main
+    path: gitops/clusters/local-k3d
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

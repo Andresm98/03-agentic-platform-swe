@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+data:
+  redis.conf: |
+    # La contraseña se pasa por línea de comandos desde el Secret (no vive en Git).
+    bind 0.0.0.0
+    port 6379
+    protected-mode yes
+    dir /data
+    appendonly yes
+    appendfsync everysec
+    save 300 10
+    maxmemory 256mb
+    # Estado de workflows: nunca expulsar claves.
+    maxmemory-policy noeviction
+    rename-command FLUSHALL ""
+    rename-command FLUSHDB ""
+    rename-command DEBUG ""

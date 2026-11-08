@@ -1,0 +1,137 @@
+# NATS 2.15.2 (chart nats). Sync-wave 0. Plan §1.1 #12, Fase E, CONTRACTS §5 y §7.
+# - JetStream, 1 réplica en el control plane, PVC local-path con Prune=false.
+# - Un usuario por servicio de la flota con permisos por subject (ADR-0002 §2). Las
+#   contraseñas llegan del Secret nats-users (ExternalSecret en manifests/) como env y
+#   el chart las interpola con la sintaxis << $VAR >> de NATS.
+# - Monitorización :8222 en el Service (KEDA nats-jetstream) y prometheus-nats-exporter.
+# - Stream TASKS, consumidores y KV los crea el Job del equipo A (sync-wave 8).
+
+global:
+  image:
+    registry: ghcr.io/andresm98/agentic-platform/mirror
+
+config:
+  cluster:
+    enabled: false
+  jetstream:
+    enabled: true
+    fileStore:
+      enabled: true
+      dir: /data
+      maxSize: 4Gi
+      pvc:
+        enabled: true
+        size: 5Gi
+        storageClassName: local-path
+        merge:
+          metadata:
+            annotations:
+              argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    memoryStore:
+      enabled: false
+  monitor:
+    enabled: true
+    port: 8222
+  merge:
+    # << >> para que salga sin comillas: como cadena, nats-server aborta (espera un entero).
+    max_payload: << 1MB >>
+    authorization:
+      # Permisos comunes a todos los servicios: API de JetStream (pull consumers y
+      # KV vía Dapr / nats.py) e inbox de respuestas.
+      users:
+        - user: orchestrator
+          password: << $NATS_PASSWORD_ORCHESTRATOR >>
+          permissions:
+            publish: ["tasks.>", "agent.*.requested", "$JS.API.>", "$JS.ACK.>", "_INBOX.>"]
+            subscribe: ["tasks.>", "agent.*.completed", "_INBOX.>"]
+        - user: researcher
+          password: << $NATS_PASSWORD_RESEARCHER >>
+          permissions:
+            publish: ["agent.research.completed", "tasks.dead", "$JS.API.>", "$JS.ACK.>", "_INBOX.>"]
+            subscribe: ["agent.research.requested", "_INBOX.>"]
+        - user: analyst
+          password: << $NATS_PASSWORD_ANALYST >>
+          permissions:
+            publish: ["agent.analysis.completed", "tasks.evaluated", "tasks.dead", "$JS.API.>", "$JS.ACK.>", "_INBOX.>"]
+            subscribe: ["agent.analysis.requested", "_INBOX.>"]
+        - user: executor
+          password: << $NATS_PASSWORD_EXECUTOR >>
+          permissions:
+            publish: ["agent.execution.completed", "tasks.dead", "$JS.API.>", "$JS.ACK.>", "_INBOX.>"]
+            subscribe: ["agent.execution.requested", "_INBOX.>"]
+        - user: llm-gateway
+          password: << $NATS_PASSWORD_LLM_GATEWAY >>
+          permissions:
+            # Solo el bucket KV llm-budget (ADR-0002 §6).
+            publish: ["$KV.llm-budget.>", "$JS.API.STREAM.INFO.KV_llm-budget", "$JS.API.STREAM.MSG.GET.KV_llm-budget", "$JS.API.DIRECT.GET.KV_llm-budget.>", "$JS.API.CONSUMER.>", "$JS.API.INFO", "_INBOX.>"]
+            subscribe: ["$KV.llm-budget.>", "_INBOX.>"]
+        - user: fake-llm
+          password: << $NATS_PASSWORD_FAKE_LLM >>
+          permissions:
+            publish: ["_INBOX.>"]
+            subscribe: ["_INBOX.>"]
+
+container:
+  image:
+    repository: nats
+    tag: 2.15.2-alpine
+    digest: sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f
+  env:
+    NATS_PASSWORD_ORCHESTRATOR:
+      valueFrom:
+        secretKeyRef: { name: nats-users, key: orchestrator }
+    NATS_PASSWORD_RESEARCHER:
+      valueFrom:
+        secretKeyRef: { name: nats-users, key: researcher }
+    NATS_PASSWORD_ANALYST:
+      valueFrom:
+        secretKeyRef: { name: nats-users, key: analyst }
+    NATS_PASSWORD_EXECUTOR:
+      valueFrom:
+        secretKeyRef: { name: nats-users, key: executor }
+    NATS_PASSWORD_LLM_GATEWAY:
+      valueFrom:
+        secretKeyRef: { name: nats-users, key: llm-gateway }
+    NATS_PASSWORD_FAKE_LLM:
+      valueFrom:
+        secretKeyRef: { name: nats-users, key: fake-llm }
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+
+reloader:
+  enabled: true
+  image:
+    repository: natsio/nats-server-config-reloader
+    tag: 0.24.0
+    digest: sha256:d758a82a9c20337e46c2f7356a413faa52cf4d6b02497c3ad81f72f1ba106464
+
+promExporter:
+  enabled: true
+  image:
+    repository: natsio/prometheus-nats-exporter
+    tag: 0.20.2
+    digest: sha256:c623b608e148e31e1c1c878673a197f1828e58ce90de4f01d22f1baa84c8fee9
+
+service:
+  ports:
+    monitor:
+      enabled: true # http://nats.nats.svc.cluster.local:8222 (KEDA, CONTRACTS §5)
+
+podTemplate:
+  merge:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "7777"
+        prometheus.io/path: /metrics
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+
+# Sin nats-box: necesitaría credenciales propias y otra imagen de Docker Hub.
+natsBox:
+  enabled: false

@@ -1,0 +1,47 @@
+# Dapr Dashboard (port-forward).
+# Generado con la misma plantilla que el resto de platform-*.yaml: values comunes en
+# gitops/platform/dapr-dashboard/, overlay por cluster en gitops/clusters/<cluster>/values/dapr-dashboard.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-dapr-dashboard
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://dapr.github.io/helm-charts
+      chart: dapr-dashboard
+      targetRevision: 0.15.0
+      helm:
+        releaseName: dapr-dashboard
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/gitops/platform/dapr-dashboard/values.yaml
+          - $values/gitops/clusters/aws-lab/values/dapr-dashboard.yaml
+    - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dapr-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

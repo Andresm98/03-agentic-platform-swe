@@ -1,0 +1,123 @@
+# Levanta o destruye el lab (L0) con OIDC y sin access keys (ADR-0001 §2, ADR-0002 §2).
+# Dos jobs en el environment lab: se aprueba el arranque del plan y, viendo su salida, el apply.
+# El plan binario se guarda en el bucket privado de estado, NO como artifact: el repo es
+# público y un plan binario contiene los valores de todos los recursos del lab.
+#
+# Variables del environment lab: AWS_ROLE_ARN, TF_STATE_BUCKET.
+# Variables del repo: LAB_OWNER, LAB_AMI_ID, PERMISSIONS_BOUNDARY_ARN y, opcionales,
+# GRAFANA_CLOUD_AWS_ACCOUNT_ID y GRAFANA_CLOUDWATCH_EXTERNAL_ID.
+name: lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "up: crear o actualizar · down: destruir"
+        type: choice
+        required: true
+        options: [up, down]
+
+concurrency:
+  group: lab
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TERRAFORM_VERSION: "1.14.5"
+  AWS_REGION: us-east-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VAR_owner: ${{ vars.LAB_OWNER }}
+  TF_VAR_ami_id: ${{ vars.LAB_AMI_ID }}
+  TF_VAR_permissions_boundary_arn: ${{ vars.PERMISSIONS_BOUNDARY_ARN }}
+  TF_VAR_grafana_cloud_aws_account_id: ${{ vars.GRAFANA_CLOUD_AWS_ACCOUNT_ID }}
+  TF_VAR_grafana_cloudwatch_external_id: ${{ vars.GRAFANA_CLOUDWATCH_EXTERNAL_ID }}
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: lab
+    # A nivel de job: TF_STATE_BUCKET es una variable del environment lab.
+    env:
+      PLAN_S3_URI: s3://${{ vars.TF_STATE_BUCKET }}/lab/plans/${{ github.run_id }}/lab.tfplan
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/lab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - name: terraform init
+        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - name: terraform plan (${{ inputs.action }})
+        env:
+          ACTION: ${{ inputs.action }}
+        run: |
+          if [ "$ACTION" = "down" ]; then
+            terraform plan -destroy -out=lab.tfplan
+          else
+            terraform plan -out=lab.tfplan
+          fi
+      - name: Guardar el plan en el bucket privado
+        run: aws s3 cp lab.tfplan "$PLAN_S3_URI" --sse AES256 --only-show-errors
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: lab
+    env:
+      PLAN_S3_URI: s3://${{ vars.TF_STATE_BUCKET }}/lab/plans/${{ github.run_id }}/lab.tfplan
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/terraform/envs/lab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - name: terraform init
+        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - name: Descargar el plan aprobado
+        run: aws s3 cp "$PLAN_S3_URI" lab.tfplan --only-show-errors
+      - name: terraform apply
+        run: terraform apply lab.tfplan
+      - name: Borrar el plan del bucket
+        if: always()
+        run: aws s3 rm "$PLAN_S3_URI" --only-show-errors || true
+      - name: Resumen
+        if: inputs.action == 'up'
+        run: |
+          {
+            echo "### Lab arriba"
+            echo "NLB: http://$(terraform output -raw nlb_dns_name)/"
+            echo "Para post-deploy.yml: gh variable set NLB_URL --body http://$(terraform output -raw nlb_dns_name)"
+            echo "Creado: $(terraform output -raw created_at) (lab-reaper lo destruye al superar LAB_TTL_HOURS)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: cost-check
+        if: inputs.action == 'down'
+        working-directory: .
+        run: bash infra/scripts/cost-check.sh

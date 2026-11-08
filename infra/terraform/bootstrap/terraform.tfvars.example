@@ -1,0 +1,11 @@
+# Copiar a terraform.tfvars (ignorado por Git) y ajustar. Valores ficticios.
+region              = "us-east-1"
+owner               = "andres"
+budget_limit_usd    = 10
+budget_alert_emails = ["alertas@example.com"]
+github_repository   = "Andresm98/03-agentic-platform-swe"
+
+# Environments de GitHub (ver docs/validation/platform.md, "Desviaciones").
+github_lab_environment           = "lab"           # con aprobación: lab.yml
+github_reaper_environment        = "lab-reaper"    # sin revisores, solo rama main: lab-reaper.yml (rol solo-destroy)
+github_observability_environment = "observability" # observability.yml (solo estado S3 observability/*)

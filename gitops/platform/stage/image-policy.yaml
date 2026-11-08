@@ -1,0 +1,30 @@
+# En el namespace stage solo arrancan imágenes publicadas por el workflow de ejercicios.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: stage-exercise-images
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: >-
+        object.spec.containers.all(c, c.image.matches('^ghcr\\.io/andresm98/agentic-platform/exercises:[a-z][a-z0-9-]*-[0-9a-f]{40}$'))
+        && !has(object.spec.initContainers)
+      message: Solo se admiten imágenes del workflow de ejercicios, fijadas por SHA y sin initContainers.
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: stage-exercise-images
+spec:
+  policyName: stage-exercise-images
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: stage

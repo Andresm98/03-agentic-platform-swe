@@ -1,0 +1,112 @@
+# Traefik 42.3.1 (Traefik v3.7.17). Sync-wave -5. IMPLEMENTATION_PLAN §1.2 #18, Fase D.
+# DaemonSet en workers, entrypoint web en :8000 (non-root) publicado en NodePort 30080,
+# externalTrafficPolicy Local (un worker nuevo pasa a healthy cuando su Traefik está
+# listo y se conserva la IP del cliente para el rate limit).
+image:
+  # Mirror en GHCR (Docker Hub fuera del camino crítico; ver platform-images.lock).
+  registry: ghcr.io/andresm98/agentic-platform/mirror
+  repository: traefik
+  tag: v3.7.17
+  digest: sha256:f4bb143d1135a579b630ed491e17ec50f6f7c9c6a30585ff3d385471d2a86f5a
+
+deployment:
+  kind: DaemonSet
+  # Probes contra /ping del entrypoint web (el mismo que usa el health check del NLB).
+  healthchecksPort: 8000
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9100"
+    prometheus.io/path: /metrics
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 0
+
+nodeSelector:
+  platform.io/pool: apps
+
+additionalArguments:
+  - --ping.entrypoint=web
+
+ports:
+  web:
+    port: 8000
+    nodePort: 30080
+    expose:
+      default: true
+  websecure:
+    expose:
+      default: false # sin dominio ni TLS en la demo (IMPLEMENTATION_PLAN §8)
+
+service:
+  spec:
+    type: NodePort
+    externalTrafficPolicy: Local
+
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: traefik
+
+providers:
+  kubernetesIngress:
+    enabled: true
+  kubernetesCRD:
+    enabled: true
+    # Los Ingress de apps referencian los middlewares de ns traefik por annotation.
+    allowCrossNamespace: true
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+
+log:
+  format: json
+
+accessLog:
+  enabled: true
+  format: json
+
+resources:
+  requests: { cpu: 100m, memory: 64Mi }
+  limits: { memory: 256Mi }
+
+# Middlewares públicos (CONTRACTS §5): traefik-rate-limit@kubernetescrd y
+# traefik-body-limit@kubernetescrd.
+extraObjects:
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: rate-limit
+      namespace: traefik
+    spec:
+      rateLimit:
+        # Por IP de cliente (RemoteAddr; el NLB la preserva). Punto de partida; se calibra
+        # con k6 en la Fase H (la prueba de ataque espera 429 en el borde).
+        average: 20
+        period: 1s
+        burst: 40
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: body-limit
+      namespace: traefik
+    spec:
+      buffering:
+        maxRequestBodyBytes: 65536 # 64 KiB: un POST /tasks legítimo es muy inferior
+        memRequestBodyBytes: 65536
+  # Los ejercicios se publican en /s/<nombre>/ y la app recibe las rutas sin ese prefijo.
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: strip-exercise-prefix
+      namespace: traefik
+    spec:
+      stripPrefixRegex:
+        regex:
+          - ^/s/[a-z0-9-]+

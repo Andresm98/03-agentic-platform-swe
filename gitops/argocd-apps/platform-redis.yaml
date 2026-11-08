@@ -1,0 +1,38 @@
+# Redis del estado de Dapr Workflow.
+# Generado con la misma plantilla que el resto de platform-*.yaml: values comunes en
+# gitops/platform/redis/, overlay por cluster en gitops/clusters/<cluster>/values/redis.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-redis
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+      targetRevision: main
+      path: gitops/platform/redis
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: data
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

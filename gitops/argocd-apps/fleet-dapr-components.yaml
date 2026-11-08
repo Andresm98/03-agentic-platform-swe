@@ -1,0 +1,37 @@
+# Componentes Dapr + Job de JetStream (sync-wave 8, CONTRACTS §8).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fleet-dapr-components
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "8"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: fleet
+    agentic.io/github-deployment: "true"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+    targetRevision: main
+    path: gitops/apps/dapr
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

@@ -1,0 +1,54 @@
+# Copia por digest las imágenes de docker.io de platform-images.lock a GHCR (plan §1.3).
+# Docker Hub solo se toca desde CI, nunca desde los nodos. Tras el primer push, cada paquete
+# nace privado y hay que hacerlo público una vez (Package settings).
+name: mirror-images
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - platform-images.lock
+      - ".github/workflows/mirror-images.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: mirror-images
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MIRROR_PREFIX: ghcr.io/andresm98/agentic-platform
+
+jobs:
+  mirror:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+        with:
+          version: v0.22.1
+      - name: Login en GHCR
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: printf '%s' "$TOKEN" | crane auth login ghcr.io -u "$ACTOR" --password-stdin
+      - name: Copiar por digest y comprobar que el digest coincide
+        run: |
+          set -euo pipefail
+          grep -Ev '^[[:space:]]*(#|$)' platform-images.lock | while read -r source target; do
+            expected="${source##*@}"
+            image_ref="${source%@*}"
+            destination="${MIRROR_PREFIX}/${target}"
+            echo "::group::${image_ref} -> ${destination}"
+            crane copy "${image_ref%:*}@${expected}" "${destination}"
+            actual="$(crane digest "${destination}")"
+            echo "digest: ${actual}"
+            [ "${actual}" = "${expected}" ] || { echo "::error::digest distinto en ${destination}"; exit 1; }
+            echo "::endgroup::"
+          done

@@ -1,0 +1,47 @@
+# Dapr control plane (sin HA, en el CP).
+# Generado con la misma plantilla que el resto de platform-*.yaml: values comunes en
+# gitops/platform/dapr/, overlay por cluster en gitops/clusters/<cluster>/values/dapr.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-dapr
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://dapr.github.io/helm-charts
+      chart: dapr
+      targetRevision: 1.19.1
+      helm:
+        releaseName: dapr
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/gitops/platform/dapr/values.yaml
+          - $values/gitops/clusters/aws-lab/values/dapr.yaml
+    - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dapr-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

@@ -1,0 +1,76 @@
+# --- Terraform ---------------------------------------------------------------
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# Variables reales: nunca a Git. Solo los ejemplos.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+# .terraform.lock.hcl SÍ se versiona (fija los providers).
+
+# --- Kubernetes / credenciales ----------------------------------------------
+kubeconfig
+kubeconfig*
+!kubeconfig*.example
+*.kubeconfig
+.kube/
+# Lo genera infra/scripts/tunnel.sh
+.lab/
+
+# --- Entornos y secretos ------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.*
+!secrets.*.example
+
+# --- Python -------------------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# --- Node ----------------------------------------------------------------------
+node_modules/
+
+# --- k6 -------------------------------------------------------------------------
+apps/loadgen/k6/results/
+k6-results/
+*.k6.json
+apps/loadgen/k6/**/summary*.json
+
+# --- Demos / evidencia temporal -----------------------------------------------
+scripts/demos/out/
+
+# --- Helm -------------------------------------------------------------------------
+**/charts/*/charts/*.tgz
+
+# --- SO / editores ------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.swp
+*~
+.vscode/*
+!.vscode/extensions.json

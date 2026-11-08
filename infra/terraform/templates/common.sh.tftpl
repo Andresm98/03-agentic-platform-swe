@@ -1,0 +1,87 @@
+# --- Funciones comunes de server y agent (se inyectan con templatefile) -------------
+# Variables de plantilla: k3s_version, k3s_sha256, airgap_sha256, install_sh_sha256,
+# awscli_version, awscli_sha256, region.
+
+readonly K3S_VERSION="${k3s_version}"
+readonly K3S_SHA256="${k3s_sha256}"
+readonly AIRGAP_SHA256="${airgap_sha256}"
+readonly INSTALL_SH_SHA256="${install_sh_sha256}"
+readonly AWSCLI_VERSION="${awscli_version}"
+readonly AWSCLI_SHA256="${awscli_sha256}"
+readonly AWS_REGION="${region}"
+readonly STATE_DIR=/var/lib/agentic-bootstrap
+readonly DL_DIR=/var/cache/agentic-bootstrap
+export AWS_REGION AWS_DEFAULT_REGION="$AWS_REGION"
+
+log() { printf '[agentic-bootstrap] %s %s\n' "$(date -u +%FT%TZ)" "$*"; }
+die() { log "ERROR: $*"; exit 1; }
+
+# done_step <nombre> / mark_done <nombre>: guardas de idempotencia.
+done_step() { [ -f "$STATE_DIR/$1.done" ]; }
+mark_done() { mkdir -p "$STATE_DIR" && touch "$STATE_DIR/$1.done"; }
+
+# imds <ruta>: lee metadata con IMDSv2.
+imds() {
+  local token
+  token="$(curl -sSf -X PUT http://169.254.169.254/latest/api/token \
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 300')" || die "IMDSv2: no se obtuvo token"
+  curl -sSf -H "X-aws-ec2-metadata-token: $token" "http://169.254.169.254/latest/meta-data/$1" \
+    || die "IMDSv2: no se pudo leer $1"
+}
+
+# fetch_verified <url> <destino> <sha256>: descarga con reintentos y verifica el hash.
+fetch_verified() {
+  local url="$1" dest="$2" sha="$3"
+  if [ -f "$dest" ] && echo "$sha  $dest" | sha256sum -c --quiet - 2>/dev/null; then
+    log "ya presente y verificado: $dest"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest")"
+  curl -sSfL --retry 5 --retry-delay 5 --retry-all-errors -o "$dest.part" "$url" || die "descarga fallida: $url"
+  echo "$sha  $dest.part" | sha256sum -c --quiet - || die "sha256 no coincide: $url"
+  mv "$dest.part" "$dest"
+  log "descargado y verificado: $dest"
+}
+
+install_awscli() {
+  if command -v aws >/dev/null 2>&1 && aws --version 2>&1 | grep -q "aws-cli/$AWSCLI_VERSION "; then
+    log "AWS CLI $AWSCLI_VERSION ya instalado"
+    return 0
+  fi
+  command -v unzip >/dev/null 2>&1 || {
+    apt-get update -y -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unzip
+  } || die "no se pudo instalar unzip"
+  fetch_verified "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-$AWSCLI_VERSION.zip" \
+    "$DL_DIR/awscli.zip" "$AWSCLI_SHA256"
+  rm -rf "$DL_DIR/aws"
+  unzip -q -o "$DL_DIR/awscli.zip" -d "$DL_DIR"
+  "$DL_DIR/aws/install" --update
+  log "AWS CLI instalado: $(aws --version 2>&1)"
+}
+
+# Binario de K3s + imágenes airgap (sistema sin Docker Hub) + install.sh de la misma etiqueta.
+install_k3s_artifacts() {
+  local base="https://github.com/k3s-io/k3s/releases/download/$${K3S_VERSION/+/%2B}"
+  fetch_verified "$base/k3s" /usr/local/bin/k3s "$K3S_SHA256"
+  chmod 0755 /usr/local/bin/k3s
+  fetch_verified "$base/k3s-airgap-images-amd64.tar.zst" \
+    /var/lib/rancher/k3s/agent/images/k3s-airgap-images-amd64.tar.zst "$AIRGAP_SHA256"
+  fetch_verified "https://raw.githubusercontent.com/k3s-io/k3s/$${K3S_VERSION/+/%2B}/install.sh" \
+    "$DL_DIR/k3s-install.sh" "$INSTALL_SH_SHA256"
+  chmod 0755 "$DL_DIR/k3s-install.sh"
+}
+
+# node_identity: exporta NODE_NAME, PROVIDER_ID y NODE_IP (ADR-0002 §1).
+node_identity() {
+  NODE_NAME="$(imds local-hostname)"
+  PROVIDER_ID="aws:///$(imds placement/availability-zone)/$(imds instance-id)"
+  NODE_IP="$(imds local-ipv4)"
+  export NODE_NAME PROVIDER_ID NODE_IP
+  log "nodo $NODE_NAME ($NODE_IP) providerID=$PROVIDER_ID"
+}
+
+# run_k3s_install <exec> <args...>: instala la unidad systemd sin descargar nada.
+run_k3s_install() {
+  INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_VERSION="$K3S_VERSION" \
+    INSTALL_K3S_EXEC="$*" "$DL_DIR/k3s-install.sh"
+}

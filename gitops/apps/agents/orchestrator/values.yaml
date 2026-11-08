@@ -1,0 +1,43 @@
+# orchestrator. image.tag solo lo escribe CI.
+image:
+  repository: ghcr.io/andresm98/agentic-platform/orchestrator
+  tag: "0.0.0-dev"
+env:
+  LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
+  LLM_MODEL: gpt-4o-mini
+  LLM_MAX_TOKENS: "300"
+  OTEL_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317
+  NATS_MONITOR_URL: http://nats.nats.svc.cluster.local:8222
+  QUEUE_SHED_THRESHOLD: "15000"
+  MAX_BODY_BYTES: "16384"
+  MAX_STEPS: "6"
+secretEnv:
+  - { name: DEMO_TOKEN, key: DEMO_TOKEN }
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { memory: 256Mi }
+dapr:
+  maxConcurrency: 10
+externalSecret:
+  enabled: true
+  data:
+    - { secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/orchestrator-password }
+    - { secretKey: demoToken, remoteKey: /agentic-platform/k8s/demo-token }
+  template:
+    NATS_URL: "nats://orchestrator:{{ .natsPassword | urlquery }}@nats.nats.svc.cluster.local:4222"
+    DEMO_TOKEN: "{{ .demoToken }}"
+keda:
+  enabled: true
+  minReplicaCount: 1
+  maxReplicaCount: 4
+networkPolicy:
+  egress:
+    nats: true
+    llmGateway: true
+    redis: true
+    natsMonitor: true
+  ingress:
+    traefik: true
+ingress:
+  enabled: true

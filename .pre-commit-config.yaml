@@ -1,0 +1,51 @@
+# Hooks de pre-commit. Instalar con:  pipx install pre-commit && pre-commit install
+# Revs fijados por commit SHA (supply chain); el comentario indica el tag.
+# Versiones verificadas el 2026-11-07 contra las releases de GitHub (ver docs/versions.md).
+# Dependabot no actualiza pre-commit: usar `pre-commit autoupdate --freeze`.
+minimum_pre_commit_version: "3.2.0"
+default_install_hook_types: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    hooks:
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+        # Las plantillas de Helm no son YAML válido hasta renderizarse.
+        exclude: ^kubernetes/charts/.*/templates/
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: \.(ps1|bat|cmd)$
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: 4c4437d784e93cacb1f05f1d7bc28e4354fafd20  # frozen: v1.109.4
+    hooks:
+      - id: terraform_fmt
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: c0f278f1254ccc8fb09676bcdb8d847e7db493e5  # frozen: v0.17.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^apps/
+      - id: ruff-format
+        files: ^apps/
+
+  - repo: https://github.com/hadolint/hadolint
+    rev: 2eece55955ced00200be9729e9728cb7dacca505  # frozen: v2.15.1
+    hooks:
+      # Usa la imagen oficial de hadolint (requiere Docker); evita instalar el binario en Windows.
+      - id: hadolint-docker

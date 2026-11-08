@@ -1,0 +1,54 @@
+# Cluster Autoscaler 9.59.0 (app 1.35). Sync-wave -5. Solo AWS.
+# Flags: IMPLEMENTATION_PLAN §2.2. Credenciales: AWS_CONFIG_FILE -> role/agentic-cluster-autoscaler.
+cloudProvider: aws
+awsRegion: us-east-1
+
+image:
+  repository: registry.k8s.io/autoscaling/cluster-autoscaler
+  tag: v1.35.3 # último parche de la minor 1.35 (misma minor que K3s y el CCM)
+
+autoDiscovery:
+  clusterName: agentic-platform
+  tags:
+    - k8s.io/cluster-autoscaler/enabled
+    - k8s.io/cluster-autoscaler/agentic-platform
+
+extraArgs:
+  logtostderr: true
+  stderrthreshold: info
+  v: 4
+  expander: least-waste
+  scale-down-unneeded-time: 5m
+  scale-down-delay-after-add: 5m
+  skip-nodes-with-local-storage: false
+  balance-similar-node-groups: false
+  max-node-provision-time: 10m
+
+extraEnv:
+  AWS_CONFIG_FILE: /etc/aws/config
+  AWS_SDK_LOAD_CONFIG: "1"
+
+extraVolumes:
+  - name: aws-config
+    configMap:
+      name: agentic-aws-cluster-autoscaler
+
+extraVolumeMounts:
+  - name: aws-config
+    mountPath: /etc/aws
+    readOnly: true
+
+nodeSelector:
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8085"
+  prometheus.io/path: /metrics
+
+resources:
+  requests: { cpu: 50m, memory: 128Mi }
+  limits: { memory: 384Mi }

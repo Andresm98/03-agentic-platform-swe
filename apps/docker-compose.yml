@@ -1,0 +1,199 @@
+# Flota completa en local, sin AWS ni OpenAI: `make compose-up`.
+# LLM_GLOBAL_MODE=simulated y sin OPENAI_API_KEY: es imposible gastar tokens reales.
+# LangSmith: activado por defecto (LANGSMITH_ENABLED=true). Sin LANGSMITH_API_KEY el gateway avisa
+# en el log y no exporta nada. Para desactivarlo: LANGSMITH_ENABLED=false make compose-up.
+# Modo Dapr self-hosted: un daprd por app en la red de la propia app (network_mode: service).
+name: agentic-fleet
+
+x-app: &app
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
+x-agent-env: &agent-env
+  LLM_BASE_URL: http://llm-gateway:8000/v1
+  LLM_MODEL: gpt-4o-mini
+  DAPR_HTTP_PORT: "3500"
+  DAPR_GRPC_PORT: "50001"
+  LOG_LEVEL: INFO
+
+x-daprd: &daprd
+  image: ghcr.io/dapr/daprd:1.19.1
+  restart: unless-stopped
+  volumes: ["./compose/dapr:/dapr:ro"]
+
+services:
+  nats:
+    image: nats:2.15.2-alpine@sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f
+    command: ["--jetstream", "--store_dir=/data", "--http_port=8222"]
+    ports: ["127.0.0.1:8222:8222"]
+    tmpfs: ["/data"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    # TODO(verify): la documentación de Dapr valida Redis 6.x/7.x como actor state store.
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 30
+
+  placement:
+    image: ghcr.io/dapr/placement:1.19.1
+    command: ["./placement", "--port", "50005"]
+
+  scheduler:
+    image: ghcr.io/dapr/scheduler:1.19.1
+    user: "0:0"
+    command: ["./scheduler", "--port", "50006", "--etcd-data-dir", "/data"]
+    tmpfs: ["/data"]
+
+  jetstream-setup:
+    build: { context: ., dockerfile: llm-gateway/Dockerfile }
+    entrypoint: ["/usr/bin/python3.11", "-m", "llm_gateway.bootstrap.jetstream_setup"]
+    environment:
+      NATS_URL: nats://nats:4222
+    depends_on:
+      nats: { condition: service_healthy }
+    restart: "no"
+
+  fake-llm:
+    <<: *app
+    build: { context: ., dockerfile: fake-llm/Dockerfile }
+    environment:
+      SERVICE_NAME: fake-llm
+      FAKE_LATENCY_MEDIAN_MS: "50"
+    ports: ["127.0.0.1:8003:8000"]
+
+  llm-gateway:
+    <<: *app
+    build: { context: ., dockerfile: llm-gateway/Dockerfile }
+    environment:
+      SERVICE_NAME: llm-gateway
+      LLM_GLOBAL_MODE: simulated
+      FAKE_LLM_URL: http://fake-llm:8000/v1
+      NATS_URL: nats://nats:4222
+      LANGSMITH_ENABLED: ${LANGSMITH_ENABLED:-true}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_SIMULATED_SAMPLE_RATE: "0.01"
+    ports: ["127.0.0.1:8002:8000"]
+    depends_on:
+      jetstream-setup: { condition: service_completed_successfully }
+
+  orchestrator:
+    <<: *app
+    build: { context: ., dockerfile: agents/orchestrator/Dockerfile }
+    environment:
+      SERVICE_NAME: orchestrator
+      <<: *agent-env
+      LLM_MAX_TOKENS: "300"
+      NATS_MONITOR_URL: http://nats:8222
+      DEMO_TOKEN: ${DEMO_TOKEN:-}
+    ports: ["127.0.0.1:8001:8000", "127.0.0.1:9001:3500"]
+    depends_on:
+      llm-gateway: { condition: service_started }
+      jetstream-setup: { condition: service_completed_successfully }
+
+  orchestrator-dapr:
+    <<: *daprd
+    network_mode: "service:orchestrator"
+    command:
+      - ./daprd
+      - --app-id=orchestrator
+      - --app-port=8000
+      - --dapr-http-port=3500
+      - --dapr-grpc-port=50001
+      - --resources-path=/dapr/components
+      - --config=/dapr/config.yaml
+      - --placement-host-address=placement:50005
+      - --scheduler-host-address=scheduler:50006
+      - --log-level=info
+      - --log-as-json
+    depends_on: [orchestrator, nats, redis, placement, scheduler]
+
+  researcher:
+    <<: *app
+    build: { context: ., dockerfile: agents/researcher/Dockerfile }
+    environment:
+      SERVICE_NAME: researcher
+      <<: *agent-env
+    depends_on:
+      llm-gateway: { condition: service_started }
+      jetstream-setup: { condition: service_completed_successfully }
+
+  researcher-dapr:
+    <<: *daprd
+    network_mode: "service:researcher"
+    command:
+      - ./daprd
+      - --app-id=researcher
+      - --app-port=8000
+      - --dapr-http-port=3500
+      - --dapr-grpc-port=50001
+      - --resources-path=/dapr/components
+      - --config=/dapr/config.yaml
+      - --placement-host-address=placement:50005
+      - --scheduler-host-address=scheduler:50006
+      - --log-level=info
+      - --log-as-json
+    depends_on: [researcher, nats, redis, placement, scheduler]
+
+  analyst:
+    <<: *app
+    build: { context: ., dockerfile: agents/analyst/Dockerfile }
+    environment:
+      SERVICE_NAME: analyst
+      <<: *agent-env
+    depends_on:
+      llm-gateway: { condition: service_started }
+      jetstream-setup: { condition: service_completed_successfully }
+
+  analyst-dapr:
+    <<: *daprd
+    network_mode: "service:analyst"
+    command:
+      - ./daprd
+      - --app-id=analyst
+      - --app-port=8000
+      - --dapr-http-port=3500
+      - --dapr-grpc-port=50001
+      - --resources-path=/dapr/components
+      - --config=/dapr/config.yaml
+      - --placement-host-address=placement:50005
+      - --scheduler-host-address=scheduler:50006
+      - --log-level=info
+      - --log-as-json
+    depends_on: [analyst, nats, redis, placement, scheduler]
+
+  executor:
+    <<: *app
+    build: { context: ., dockerfile: agents/executor/Dockerfile }
+    environment:
+      SERVICE_NAME: executor
+      <<: *agent-env
+      WORK_DURATION_MS: "200"
+    tmpfs: ["/tmp"]
+    depends_on:
+      llm-gateway: { condition: service_started }
+      jetstream-setup: { condition: service_completed_successfully }
+
+  executor-dapr:
+    <<: *daprd
+    network_mode: "service:executor"
+    command:
+      - ./daprd
+      - --app-id=executor
+      - --app-port=8000
+      - --dapr-http-port=3500
+      - --dapr-grpc-port=50001
+      - --resources-path=/dapr/components
+      - --config=/dapr/config.yaml
+      - --placement-host-address=placement:50005
+      - --scheduler-host-address=scheduler:50006
+      - --log-level=info
+      - --log-as-json
+    depends_on: [executor, nats, redis, placement, scheduler]

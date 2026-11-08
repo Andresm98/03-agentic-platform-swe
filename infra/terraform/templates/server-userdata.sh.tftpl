@@ -1,0 +1,102 @@
+#!/bin/bash
+# user-data del control plane K3s (L1, ADR-0001). Idempotente: cada paso tiene guarda;
+# se puede reejecutar con `cloud-init clean && cloud-init init` o lanzando este script.
+# Log: /var/log/agentic-bootstrap.log
+set -euo pipefail
+exec > >(tee -a /var/log/agentic-bootstrap.log) 2>&1
+
+${common_functions}
+
+readonly JOIN_TOKEN_PARAM="${join_token_parameter}"
+readonly MANIFESTS_DIR=/var/lib/rancher/k3s/server/manifests
+readonly ROOT_APP_TIMEOUT_SECONDS=1200
+
+k3s_kubectl() { /usr/local/bin/k3s kubectl "$@"; }
+
+# Manifests de kubernetes/bootstrap/ (CCM, ConfigMaps AWS_CONFIG_FILE, Argo CD).
+# Se copian ANTES de arrancar K3s: el helm-controller los aplica en el primer arranque.
+write_bootstrap_manifests() {
+  mkdir -p "$MANIFESTS_DIR"
+%{ for name, content in bootstrap_manifests ~}
+  cat > "$MANIFESTS_DIR/${name}" <<'AGENTIC_MANIFEST_EOF'
+${content}
+AGENTIC_MANIFEST_EOF
+%{ endfor ~}
+  chmod 0600 "$MANIFESTS_DIR"/*.yaml
+  log "manifests de bootstrap escritos en $MANIFESTS_DIR"
+}
+
+install_k3s_server() {
+  if systemctl is-active --quiet k3s; then
+    log "k3s server ya activo"
+    return 0
+  fi
+  # Flags exactos de ADR-0002 §1 + plan Fase B.
+  run_k3s_install server \
+    --node-name="$NODE_NAME" \
+    --node-ip="$NODE_IP" \
+    --kubelet-arg=cloud-provider=external \
+    --kubelet-arg="provider-id=$PROVIDER_ID" \
+    --disable-cloud-controller \
+    --disable=traefik,servicelb \
+    --node-taint=CriticalAddonsOnly=true:NoExecute \
+    --tls-san=127.0.0.1 \
+    --write-kubeconfig-mode=0600 \
+    --secrets-encryption
+  log "k3s server instalado"
+}
+
+wait_for_api() {
+  for _ in $(seq 1 90); do
+    if k3s_kubectl get --raw=/readyz >/dev/null 2>&1; then
+      log "API server listo"
+      return 0
+    fi
+    sleep 5
+  done
+  die "el API server no respondió en 450 s"
+}
+
+publish_join_token() {
+  local token_file=/var/lib/rancher/k3s/server/node-token
+  [ -s "$token_file" ] || die "no existe $token_file"
+  aws ssm put-parameter --name "$JOIN_TOKEN_PARAM" --type SecureString \
+    --value "$(cat "$token_file")" --overwrite >/dev/null \
+    || die "no se pudo publicar el join token en $JOIN_TOKEN_PARAM"
+  log "join token publicado en SSM ($JOIN_TOKEN_PARAM)"
+}
+
+# root-app (app-of-apps) solo se copia cuando existe el CRD de Argo CD, para que el
+# deploy controller de K3s lo aplique a la primera.
+install_root_app() {
+  local waited=0
+  until k3s_kubectl get crd applications.argoproj.io >/dev/null 2>&1; do
+    if [ "$waited" -ge "$ROOT_APP_TIMEOUT_SECONDS" ]; then
+      log "WARN: Argo CD no instaló sus CRDs en $ROOT_APP_TIMEOUT_SECONDS s; root-app no copiada (ver runbook)"
+      return 0
+    fi
+    sleep 10
+    waited=$((waited + 10))
+  done
+  cat > "$MANIFESTS_DIR/root-app.yaml" <<'AGENTIC_MANIFEST_EOF'
+${root_app_manifest}
+AGENTIC_MANIFEST_EOF
+  chmod 0600 "$MANIFESTS_DIR/root-app.yaml"
+  log "root-app copiada; Argo CD toma el control (L2)"
+}
+
+main() {
+  log "inicio (K3s $K3S_VERSION, server)"
+  install_awscli
+  install_k3s_artifacts
+  node_identity
+  write_bootstrap_manifests
+  install_k3s_server
+  wait_for_api
+  publish_join_token
+  done_step root-app || { install_root_app && mark_done root-app; }
+  mark_done server
+  log "fin"
+}
+
+main "$@"

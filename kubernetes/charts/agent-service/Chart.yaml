@@ -1,0 +1,7 @@
+apiVersion: v2
+name: agent-service
+description: Chart único de la flota agéntica (4 agentes, llm-gateway y fake-llm).
+type: application
+version: 0.1.0
+appVersion: "0.0.0-dev"
+kubeVersion: ">=1.33.0-0"

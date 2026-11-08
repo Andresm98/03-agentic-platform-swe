@@ -1,0 +1,18 @@
+# Reintentos de entrega al app; agotados, Dapr reenvía a deadLetterTopic (tasks.dead).
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: fleet-delivery
+spec:
+  policies:
+    retries:
+      deliver:
+        policy: exponential
+        initialInterval: 500ms
+        maxInterval: 10s
+        maxRetries: 3
+  targets:
+    components:
+      pubsub:
+        inbound:
+          retry: deliver

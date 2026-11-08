@@ -1,0 +1,57 @@
+# L1: AWS cloud-controller-manager vía helm-controller de K3s (bootstrap: true).
+# Debe existir antes que nada: con cloud-provider=external los nodos nacen con el taint
+# node.cloudprovider.kubernetes.io/uninitialized (ADR-0001, plan §1.1 #2-#3).
+# Variables: region.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: aws-cloud-controller-manager
+  namespace: kube-system
+spec:
+  bootstrap: true
+  repo: https://kubernetes.github.io/cloud-provider-aws
+  chart: aws-cloud-controller-manager
+  version: 0.0.12 # appVersion v1.35.0; imagen sobrescrita al último parche de la minor 1.35
+  targetNamespace: kube-system
+  valuesContent: |-
+    args:
+      - --v=2
+      - --cloud-provider=aws
+      - --controllers=cloud-node,cloud-node-lifecycle
+      - --configure-cloud-routes=false
+    image:
+      repository: registry.k8s.io/provider-aws/cloud-controller-manager
+      tag: v1.35.3
+    hostNetworking: true
+    nodeSelector:
+      node-role.kubernetes.io/control-plane: "true"
+    tolerations:
+      - key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+    resources:
+      requests:
+        cpu: 100m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    env:
+      - name: AWS_CONFIG_FILE
+        value: /etc/aws/config
+      - name: AWS_SDK_LOAD_CONFIG
+        value: "1"
+      - name: AWS_REGION
+        value: ${region}
+    extraVolumes:
+      - name: aws-config
+        configMap:
+          name: agentic-aws-ccm
+    extraVolumeMounts:
+      - name: aws-config
+        mountPath: /etc/aws
+        readOnly: true

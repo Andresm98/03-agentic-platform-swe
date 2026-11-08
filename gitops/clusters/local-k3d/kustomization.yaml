@@ -1,0 +1,57 @@
+# Overlay local-k3d (perfil de costo cero, scripts/local/k3d.sh).
+# Reutiliza los mismos platform-*.yaml que AWS y solo cambia el overlay de values.
+# Excluidos (dependen de AWS o de cuentas externas):
+#   platform-external-secrets-store -> k3d.sh crea un ClusterSecretStore 'aws-ssm' de tipo fake
+#                                      con valores aleatorios generados en tiempo de ejecución
+#   platform-cluster-autoscaler     -> sin ASG (los nodos de k3d son fijos)
+#   platform-k8s-monitoring         -> sin credenciales de Grafana Cloud
+#   platform-argocd-notifications   -> sin GitHub App
+#   (el AWS CCM no existe en local: es L1 de AWS)
+# Requiere kustomize.buildOptions=--load-restrictor LoadRestrictionsNone (lo fija k3d.sh).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../argocd-apps/platform-external-secrets.yaml
+  - ../../argocd-apps/platform-keda.yaml
+  - ../../argocd-apps/platform-traefik.yaml
+  - ../../argocd-apps/platform-nats.yaml
+  - ../../argocd-apps/platform-dapr.yaml
+  - ../../argocd-apps/platform-dapr-dashboard.yaml
+  - ../../argocd-apps/platform-redis.yaml
+  - fleet-apps.yaml
+patches:
+  - target: { kind: Application, name: platform-external-secrets }
+    patch: |-
+      - op: replace
+        path: /spec/sources/0/helm/valueFiles/1
+        value: $values/gitops/clusters/local-k3d/values/external-secrets.yaml
+  - target: { kind: Application, name: platform-keda }
+    patch: |-
+      - op: replace
+        path: /spec/sources/0/helm/valueFiles/1
+        value: $values/gitops/clusters/local-k3d/values/keda.yaml
+  - target: { kind: Application, name: platform-traefik }
+    patch: |-
+      - op: replace
+        path: /spec/sources/0/helm/valueFiles/1
+        value: $values/gitops/clusters/local-k3d/values/traefik.yaml
+  - target: { kind: Application, name: platform-nats }
+    patch: |-
+      - op: replace
+        path: /spec/sources/0/helm/valueFiles/1
+        value: $values/gitops/clusters/local-k3d/values/nats.yaml
+  - target: { kind: Application, name: platform-dapr }
+    patch: |-
+      - op: replace
+        path: /spec/sources/0/helm/valueFiles/1
+        value: $values/gitops/clusters/local-k3d/values/dapr.yaml
+  - target: { kind: Application, name: platform-dapr-dashboard }
+    patch: |-
+      - op: replace
+        path: /spec/sources/0/helm/valueFiles/1
+        value: $values/gitops/clusters/local-k3d/values/dapr-dashboard.yaml
+  - target: { kind: Application, labelSelector: agentic.io/layer=platform }
+    patch: |-
+      - op: add
+        path: /metadata/labels/agentic.io~1cluster
+        value: local-k3d

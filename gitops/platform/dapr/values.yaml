@@ -1,0 +1,24 @@
+# Dapr 1.19.1 control plane. Sync-wave 5. ADR-0001 §3, ADR-0002 §2-§3.
+# Sin HA, todo en el control plane; imágenes de ghcr.io/dapr (incluido daprd).
+# mTLS entre sidecars con certificados de Sentry.
+global:
+  registry: ghcr.io/dapr
+  tag: "1.19.1"
+  logAsJson: true
+  ha:
+    enabled: false
+  mtls:
+    enabled: true
+  prometheus:
+    enabled: true
+    port: 9090
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+
+dapr_scheduler:
+  cluster:
+    storageClassName: local-path
+    storageSize: 1Gi

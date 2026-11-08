@@ -1,0 +1,39 @@
+# Configuración de gitleaks: reglas por defecto + reglas propias del proyecto.
+# Se usa en pre-commit y en CI (_iac-scan.yml).
+title = "agentic-platform gitleaks config"
+
+[extend]
+useDefault = true
+
+# API keys de OpenAI (sk-..., sk-proj-...). Solo deben existir en SSM.
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API key"
+regex = '''sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}'''
+keywords = ["sk-"]
+
+# Tokens de Grafana Cloud (glc_ / glsa_).
+[[rules]]
+id = "grafana-cloud-token"
+description = "Grafana Cloud access policy / service account token"
+regex = '''\b(?:glc|glsa)_[A-Za-z0-9+/=_-]{32,}'''
+keywords = ["glc_", "glsa_"]
+
+# Token de admisión de la demo en claro (cabecera X-Demo-Token con valor).
+[[rules]]
+id = "demo-token-literal"
+description = "X-Demo-Token con un valor literal"
+regex = '''(?i)x-demo-token["']?\s*[:=]\s*["']?[A-Za-z0-9_-]{16,}'''
+keywords = ["x-demo-token"]
+
+[allowlist]
+description = "Ejemplos con valores ficticios y documentación"
+paths = [
+  '''(^|/)[^/]*\.example$''',
+  '''\.tfvars\.example$''',
+  '''(^|/)\.terraform\.lock\.hcl$''',
+]
+# Valores ficticios usados en ejemplos y tests.
+regexes = [
+  '''(?i)(changeme|dummy|fake|example|placeholder|xxxx+)''',
+]

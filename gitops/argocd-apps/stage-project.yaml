@@ -1,0 +1,24 @@
+# Limita lo que pueden crear las Applications de ejercicios: solo el namespace stage
+# y solo estos tipos de recurso. Sin recursos de cluster.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: stage
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "11"
+spec:
+  description: Ejercicios de estudiantes (rama stage)
+  sourceRepos:
+    - https://github.com/Andresm98/03-agentic-platform-swe.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: stage
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - { group: "", kind: ConfigMap }
+    - { group: "", kind: Service }
+    - { group: "", kind: ServiceAccount }
+    - { group: apps, kind: Deployment }
+    - { group: networking.k8s.io, kind: Ingress }
+    - { group: networking.k8s.io, kind: NetworkPolicy }

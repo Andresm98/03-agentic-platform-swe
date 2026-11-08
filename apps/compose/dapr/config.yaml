@@ -1,0 +1,8 @@
+# Dapr self-hosted (docker compose). En Kubernetes: gitops/apps/dapr/configuration.yaml.
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: compose
+spec:
+  tracing:
+    samplingRate: "0"

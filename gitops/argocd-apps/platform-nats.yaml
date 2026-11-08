@@ -1,0 +1,50 @@
+# NATS JetStream (1 réplica en el CP) + usuarios por servicio.
+# Generado con la misma plantilla que el resto de platform-*.yaml: values comunes en
+# gitops/platform/nats/, overlay por cluster en gitops/clusters/<cluster>/values/nats.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-nats
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://nats-io.github.io/k8s/helm/charts
+      chart: nats
+      targetRevision: 2.15.2
+      helm:
+        releaseName: nats
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/gitops/platform/nats/values.yaml
+          - $values/gitops/clusters/aws-lab/values/nats.yaml
+    - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+      targetRevision: main
+      path: gitops/platform/nats/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nats
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

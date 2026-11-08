@@ -1,0 +1,15 @@
+{{- if .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "agent-service.name" . }}
+  labels: {{- include "agent-service.labels" . | nindent 4 }}
+spec:
+  {{- if not (kindIs "invalid" .Values.pdb.minAvailable) }}
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "agent-service.selectorLabels" . | nindent 6 }}
+{{- end }}

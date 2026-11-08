@@ -1,0 +1,188 @@
+# Grafana k8s-monitoring 4.6.0 (Alloy). Sync-wave 0. Plan §1.3 y Fase I. Solo AWS.
+# Collectors (plan §1.3, "Alloy como DaemonSet"):
+#   alloy-metrics   StatefulSet en el CP: kubelet/cAdvisor/KSM/node-exporter + scraping por annotations
+#   alloy-singleton Deployment en el CP: eventos del cluster
+#   alloy-logs      DaemonSet en todos los nodos: logs de pods
+#   alloy-otlp      Deployment en el CP: receptor OTLP -> alloy-otlp.monitoring:4317/4318 (CONTRACTS §5)
+# Destinos de Grafana Cloud: URLs, usuarios y token llegan como env desde el Secret
+# grafana-cloud (ExternalSecret en manifests/, SSM /agentic-platform/k8s/grafana-cloud).
+# Free tier (~10k series): allowlists por defecto + allowlist de métricas de apps.
+
+cluster:
+  name: agentic-platform
+
+# Anclas reutilizadas por todos los collectors (sin repetir bloques).
+x-control-plane: &controlPlane
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+
+x-grafana-env: &grafanaEnv
+  - name: GC_PROM_URL
+    valueFrom: { secretKeyRef: { name: grafana-cloud, key: prom_url } }
+  - name: GC_PROM_USER
+    valueFrom: { secretKeyRef: { name: grafana-cloud, key: prom_user } }
+  - name: GC_LOKI_URL
+    valueFrom: { secretKeyRef: { name: grafana-cloud, key: loki_url } }
+  - name: GC_LOKI_USER
+    valueFrom: { secretKeyRef: { name: grafana-cloud, key: loki_user } }
+  - name: GC_OTLP_URL
+    valueFrom: { secretKeyRef: { name: grafana-cloud, key: otlp_url } }
+  - name: GC_OTLP_USER
+    valueFrom: { secretKeyRef: { name: grafana-cloud, key: otlp_user } }
+  - name: GC_TOKEN
+    valueFrom: { secretKeyRef: { name: grafana-cloud, key: token } }
+
+global:
+  scrapeInterval: 60s
+
+destinations:
+  grafanaCloudMetrics:
+    type: prometheus
+    urlFrom: sys.env("GC_PROM_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_PROM_USER")
+      passwordFrom: sys.env("GC_TOKEN")
+    secret:
+      create: false
+  grafanaCloudLogs:
+    type: loki
+    urlFrom: sys.env("GC_LOKI_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_LOKI_USER")
+      passwordFrom: sys.env("GC_TOKEN")
+    secret:
+      create: false
+  grafanaCloudTraces:
+    type: otlp
+    protocol: http
+    urlFrom: sys.env("GC_OTLP_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_OTLP_USER")
+      passwordFrom: sys.env("GC_TOKEN")
+    secret:
+      create: false
+    metrics: { enabled: false }
+    logs: { enabled: false }
+    traces: { enabled: true }
+
+clusterMetrics:
+  enabled: true
+  collector: alloy-metrics
+  destinations: [grafanaCloudMetrics]
+
+hostMetrics:
+  enabled: true
+  collector: alloy-metrics
+  destinations: [grafanaCloudMetrics]
+  linuxHosts:
+    enabled: true
+
+clusterEvents:
+  enabled: true
+  collector: alloy-singleton
+  destinations: [grafanaCloudLogs]
+
+podLogsViaLoki:
+  enabled: true
+  collector: alloy-logs
+  destinations: [grafanaCloudLogs]
+  namespaces: [apps, stage, traefik, nats, data, dapr-system, keda, kube-system, argocd, external-secrets]
+
+# Scraping por annotations (CONTRACTS §5): prometheus.io/scrape|port|path.
+annotationAutodiscovery:
+  enabled: true
+  collector: alloy-metrics
+  destinations: [grafanaCloudMetrics]
+  annotations:
+    scrape: prometheus.io/scrape
+    metricsPortNumber: prometheus.io/port
+    metricsPath: prometheus.io/path
+  # Label "app" en las métricas = label app.kubernetes.io/name del pod (la usan los dashboards).
+  pods:
+    labels:
+      app: app.kubernetes.io/name
+  metricsTuning:
+    # Allowlist (free tier): métricas de la flota, Traefik, NATS, CA, KEDA, Dapr y Go runtime mínimo.
+    includeMetrics:
+      - "http_request_duration_seconds.*"
+      - "tasks_.*"
+      - "task_.*"
+      - "agent_steps_total"
+      - "llm_.*"
+      - "traefik_(entrypoint|service|router)_.*"
+      - "nats_.*"
+      - "cluster_autoscaler_.*"
+      - "keda_.*"
+      - "dapr_(runtime|component|http_server|grpc_io|resiliency|placement|scheduler)_.*"
+      - "up"
+
+applicationObservability:
+  enabled: true
+  collector: alloy-otlp
+  destinations: [grafanaCloudTraces]
+  # Las apps exponen métricas Prometheus (scraping) y logs por stdout: por OTLP solo trazas.
+  metrics: { enabled: false }
+  logs: { enabled: false }
+  traces: { enabled: true }
+  receivers:
+    otlp:
+      grpc:
+        enabled: true
+        port: 4317
+      http:
+        enabled: true
+        port: 4318
+
+# Común a todos los collectors: imagen del mirror (Docker Hub fuera del camino crítico)
+# y credenciales de Grafana Cloud como env.
+collectorCommon:
+  alloy:
+    image:
+      registry: ghcr.io/andresm98/agentic-platform/mirror
+      repository: grafana/alloy
+      tag: v1.21.3 # appVersion del chart alloy 1.14.4 que usa alloy-operator 1.14.4
+      digest: sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+    alloy:
+      extraEnv: *grafanaEnv
+
+collectors:
+  alloy-metrics:
+    presets: [clustered, statefulset]
+    controller: *controlPlane
+  alloy-singleton:
+    presets: [singleton]
+    controller: *controlPlane
+  alloy-logs:
+    presets: [filesystem-log-reader, daemonset]
+    controller:
+      # Todos los nodos (también el CP, para tener los logs de NATS, Argo, etc.).
+      tolerations:
+        - operator: Exists
+  alloy-otlp:
+    presets: [deployment]
+    controller: *controlPlane
+    extraService:
+      enabled: true
+      fullname: alloy-otlp
+
+telemetryServices:
+  kube-state-metrics:
+    deploy: true
+    nodeSelector:
+      node-role.kubernetes.io/control-plane: "true"
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+  node-exporter:
+    deploy: true
+    tolerations:
+      - operator: Exists
+
+alloy-operator:
+  <<: *controlPlane

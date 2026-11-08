@@ -1,0 +1,28 @@
+# Namespace stage y sus controles: Pod Security, cuota, default-deny y política de imágenes.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-stage
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "12"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+    targetRevision: main
+    path: gitops/platform/stage
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: stage
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

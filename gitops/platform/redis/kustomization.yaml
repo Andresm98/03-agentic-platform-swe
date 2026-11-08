@@ -1,0 +1,17 @@
+# Redis del estado de Dapr Workflow (actor state store). Sync-wave 0. Ns data.
+# Manifiestos propios en lugar de un chart: una réplica, sin Sentinel, y la imagen
+# oficial del mirror (los charts populares dependen de imágenes de Bitnami).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: data
+labels:
+  - pairs:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/part-of: agentic-platform
+    includeSelectors: false
+resources:
+  - external-secret.yaml
+  - configmap.yaml
+  - service.yaml
+  - statefulset.yaml
+  - networkpolicy.yaml

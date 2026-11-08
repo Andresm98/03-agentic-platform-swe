@@ -1,0 +1,47 @@
+# Crea stream TASKS, DLQ, consumidores durables y KV antes que la flota (sync-wave 8 de la App).
+# Hook de Sync para que Argo lo recree en cada sync: un Job es inmutable y cambia de imagen.
+# Idempotente: reutiliza la imagen de llm-gateway, que ya incluye el cliente NATS.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: jetstream-setup
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jetstream-setup
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - { key: CriticalAddonsOnly, operator: Exists, effect: NoExecute }
+      containers:
+        - name: setup
+          image: ghcr.io/andresm98/agentic-platform/llm-gateway:0.0.0-dev
+          command: ["/usr/bin/python3.11", "-m", "llm_gateway.bootstrap.jetstream_setup"]
+          env:
+            - { name: NATS_URL, value: "nats://nats.nats.svc.cluster.local:4222" }
+            - { name: NATS_USER, value: orchestrator }
+            - name: NATS_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: jetstream-setup, key: NATS_PASSWORD }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 128Mi }

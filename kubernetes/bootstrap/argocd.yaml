@@ -1,0 +1,80 @@
+# L1: Argo CD vía helm-controller de K3s (ADR-0001 §2, Fase C). Sin variables de
+# plantilla: el mismo fichero lo aplica scripts/local/k3d.sh en el perfil local.
+# Desde aquí todo lo demás entra por Git (gitops/root-app.yaml).
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: argo-cd
+  namespace: kube-system
+spec:
+  repo: https://argoproj.github.io/argo-helm
+  chart: argo-cd
+  version: 10.15.0 # Argo CD v3.6.1
+  targetNamespace: argocd
+  createNamespace: true
+  valuesContent: |-
+    global:
+      domain: argocd.local
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+    crds:
+      keep: true
+    dex:
+      enabled: false
+    configs:
+      params:
+        server.insecure: true # solo por port-forward (ADR-0002 §4); nunca expuesto
+      cm:
+        timeout.reconciliation: 120s
+        exec.enabled: false
+        admin.enabled: true
+        # El overlay gitops/clusters/local-k3d reutiliza ../../argocd-apps/platform-*.yaml.
+        kustomize.buildOptions: --load-restrictor LoadRestrictionsNone
+        # Salud de Application para que los sync-waves del app-of-apps esperen a que
+        # cada Application hija esté Healthy (Argo CD >= 1.8 la quitó por defecto).
+        resource.customizations.health.argoproj.io_Application: |
+          hs = {}
+          hs.status = "Progressing"
+          hs.message = ""
+          if obj.status ~= nil and obj.status.health ~= nil then
+            hs.status = obj.status.health.status
+            if obj.status.health.message ~= nil then
+              hs.message = obj.status.health.message
+            end
+          end
+          return hs
+    controller:
+      resources:
+        requests: { cpu: 100m, memory: 384Mi }
+        limits: { memory: 1Gi }
+    repoServer:
+      resources:
+        requests: { cpu: 50m, memory: 128Mi }
+        limits: { memory: 512Mi }
+    server:
+      resources:
+        requests: { cpu: 25m, memory: 64Mi }
+        limits: { memory: 256Mi }
+    applicationSet:
+      resources:
+        requests: { cpu: 25m, memory: 64Mi }
+        limits: { memory: 256Mi }
+    redis:
+      resources:
+        requests: { cpu: 25m, memory: 32Mi }
+        limits: { memory: 128Mi }
+    notifications:
+      enabled: true
+      argocdUrl: http://localhost:8080 # port-forward
+      # La configuración (GitHub App, triggers, plantillas) y el Secret los gestiona L2:
+      # gitops/platform/argocd-notifications (ConfigMap + ExternalSecret).
+      cm:
+        create: false
+      secret:
+        create: false
+      resources:
+        requests: { cpu: 10m, memory: 32Mi }
+        limits: { memory: 128Mi }

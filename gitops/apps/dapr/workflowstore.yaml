@@ -1,0 +1,16 @@
+# Estado de Dapr Workflow (Redis: actor state store con transacciones).
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: workflowstore
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+    - { name: redisHost, value: "redis.data.svc.cluster.local:6379" }
+    - name: redisPassword
+      secretKeyRef: { name: redis-auth, key: password }
+    - { name: actorStateStore, value: "true" }
+auth:
+  secretStore: kubernetes
+scopes: [orchestrator]

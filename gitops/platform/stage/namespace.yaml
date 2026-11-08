@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stage
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# Tope de 3 ejercicios también dentro del cluster. Los pods y la CPU dejan margen para que
+# cada uno pueda hacer un rolling update (maxSurge 1).
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: exercises
+  namespace: stage
+spec:
+  hard:
+    count/deployments.apps: "3"
+    pods: "6"
+    requests.cpu: 300m
+    requests.memory: 384Mi
+    limits.cpu: 600m
+    limits.memory: 768Mi
+---
+# Todo denegado por defecto. El chart abre solo Traefik -> app, Alloy -> métricas y DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: stage
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]

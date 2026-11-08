@@ -1,0 +1,27 @@
+# default-deny del namespace apps (ADR-0002 §3). Los flujos permitidos los abre el chart.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: jetstream-setup
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: jetstream-setup }
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nats } }
+      ports:
+        - { port: 4222, protocol: TCP }

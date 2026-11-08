@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: apps
+resources:
+  - pubsub.yaml
+  - workflowstore.yaml
+  - configuration.yaml
+  - resiliency.yaml
+  - external-secrets.yaml
+  - networkpolicy.yaml
+  - jetstream-setup-job.yaml
+# La imagen del Job (llm-gateway) la promociona _gitops-promote.yml.
+images:
+  - name: ghcr.io/andresm98/agentic-platform/llm-gateway
+    newTag: 0.0.0-dev

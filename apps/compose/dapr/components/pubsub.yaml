@@ -1,0 +1,19 @@
+# Misma semántica que gitops/apps/dapr/pubsub.yaml, sin credenciales (NATS local sin auth).
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+spec:
+  type: pubsub.jetstream
+  version: v1
+  metadata:
+    - { name: natsURL, value: "nats://nats:4222" }
+    - { name: streamName, value: "TASKS" }
+    - { name: durableName, value: "{appID}" }
+    - { name: queueGroupName, value: "{appID}" }
+    - { name: deliverPolicy, value: "all" }
+    - { name: ackPolicy, value: "explicit" }
+    - { name: ackWait, value: "60s" }
+    - { name: maxDeliver, value: "5" }
+    - { name: maxAckPending, value: "100" }
+scopes: [orchestrator, researcher, analyst, executor]

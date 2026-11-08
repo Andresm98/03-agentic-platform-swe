@@ -1,0 +1,68 @@
+#!/bin/bash
+# user-data de los workers K3s (agente). Idempotente. Log: /var/log/agentic-bootstrap.log
+set -euo pipefail
+exec > >(tee -a /var/log/agentic-bootstrap.log) 2>&1
+
+${common_functions}
+
+readonly JOIN_TOKEN_PARAM="${join_token_parameter}"
+readonly JOIN_TOKEN_PLACEHOLDER="${join_token_placeholder}"
+readonly SERVER_URL="https://${control_plane_ip}:6443"
+readonly TOKEN_TIMEOUT_SECONDS=900
+
+# wait_for_token: el CP publica el token al arrancar; backoff exponencial con techo.
+wait_for_token() {
+  local delay=5 waited=0 value
+  while true; do
+    value="$(aws ssm get-parameter --name "$JOIN_TOKEN_PARAM" --with-decryption \
+      --query Parameter.Value --output text 2>/dev/null || true)"
+    if [ -n "$value" ] && [ "$value" != "$JOIN_TOKEN_PLACEHOLDER" ] && [ "$value" != "None" ]; then
+      K3S_TOKEN="$value"
+      export K3S_TOKEN
+      log "join token disponible tras $waited s"
+      return 0
+    fi
+    [ "$waited" -ge "$TOKEN_TIMEOUT_SECONDS" ] && die "sin join token en $TOKEN_TIMEOUT_SECONDS s ($JOIN_TOKEN_PARAM)"
+    log "esperando join token ($waited s, siguiente intento en $delay s)"
+    sleep "$delay"
+    waited=$((waited + delay))
+    delay=$((delay * 2 > 60 ? 60 : delay * 2))
+  done
+}
+
+wait_for_server() {
+  for _ in $(seq 1 60); do
+    curl -sk --max-time 5 "$SERVER_URL/ping" >/dev/null 2>&1 && return 0
+    sleep 5
+  done
+  die "el API server $SERVER_URL no responde"
+}
+
+install_k3s_agent() {
+  if systemctl is-active --quiet k3s-agent; then
+    log "k3s agent ya activo"
+    return 0
+  fi
+  K3S_URL="$SERVER_URL" run_k3s_install agent \
+    --node-name="$NODE_NAME" \
+    --node-ip="$NODE_IP" \
+    --kubelet-arg=cloud-provider=external \
+    --kubelet-arg="provider-id=$PROVIDER_ID" \
+    --node-label=platform.io/pool=apps \
+    --node-label=platform.io/role=worker
+  log "k3s agent instalado contra $SERVER_URL"
+}
+
+main() {
+  log "inicio (K3s $K3S_VERSION, agent)"
+  install_awscli
+  install_k3s_artifacts
+  node_identity
+  wait_for_token
+  wait_for_server
+  install_k3s_agent
+  mark_done agent
+  log "fin"
+}
+
+main "$@"

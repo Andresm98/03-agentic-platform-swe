@@ -1,0 +1,39 @@
+# executor. image.tag solo lo escribe CI.
+image:
+  repository: ghcr.io/andresm98/agentic-platform/executor
+  tag: "0.0.0-dev"
+env:
+  LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
+  LLM_MODEL: gpt-4o-mini
+  LLM_MAX_TOKENS: "200"
+  OTEL_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317
+  WORK_DURATION_MS: "500"
+resources:
+  requests: { cpu: 500m, memory: 192Mi }
+  limits: { cpu: 1000m, memory: 384Mi }
+dapr:
+  maxConcurrency: 2
+externalSecret:
+  enabled: true
+  data:
+    - { secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/executor-password }
+  template:
+    NATS_URL: "nats://executor:{{ .natsPassword | urlquery }}@nats.nats.svc.cluster.local:4222"
+keda:
+  enabled: true
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  cpu:
+    enabled: true
+    utilization: 60
+  behavior:
+    scaleUp:
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 30 }
+    scaleDown:
+      stabilizationWindowSeconds: 120
+networkPolicy:
+  egress:
+    nats: true
+    llmGateway: true

@@ -1,0 +1,13 @@
+# Dapr Dashboard 0.15.0. Sync-wave 5. Solo por port-forward (ADR-0002 §4).
+image:
+  registry: ghcr.io/dapr # existe ghcr.io/dapr/dashboard:0.15.0 (verificado); evita docker.io/daprio
+  name: dashboard
+  tag: "0.15.0"
+nodeSelector:
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+resources:
+  requests: { cpu: 10m, memory: 32Mi }
+  limits: { memory: 128Mi }

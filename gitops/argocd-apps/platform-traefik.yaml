@@ -1,0 +1,47 @@
+# Traefik DaemonSet + middlewares rate-limit/body-limit.
+# Generado con la misma plantilla que el resto de platform-*.yaml: values comunes en
+# gitops/platform/traefik/, overlay por cluster en gitops/clusters/<cluster>/values/traefik.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-traefik
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://traefik.github.io/charts
+      chart: traefik
+      targetRevision: 42.3.1
+      helm:
+        releaseName: traefik
+        ignoreMissingValueFiles: true
+        valueFiles:
+          - $values/gitops/platform/traefik/values.yaml
+          - $values/gitops/clusters/aws-lab/values/traefik.yaml
+    - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

@@ -1,0 +1,25 @@
+# External Secrets Operator 2.14.0 (chart external-secrets). Sync-wave -10.
+# Values comunes a todos los clusters. Las credenciales AWS están en el overlay
+# gitops/clusters/aws-lab/values/external-secrets.yaml.
+installCRDs: true
+
+global:
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: "true"
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+
+resources:
+  requests: { cpu: 20m, memory: 64Mi }
+  limits: { memory: 256Mi }
+
+webhook:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }
+
+certController:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }

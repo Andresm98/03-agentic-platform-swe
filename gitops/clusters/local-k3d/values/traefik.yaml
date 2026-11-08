@@ -1,0 +1,5 @@
+# Overlay local-k3d de Traefik: k3d publica el NodePort 30080 en localhost:8080
+# (scripts/local/k3d.sh). Requests menores para el portátil.
+resources:
+  requests: { cpu: 50m, memory: 48Mi }
+  limits: { memory: 192Mi }

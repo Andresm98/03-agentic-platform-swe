@@ -1,0 +1,165 @@
+# Ejercicios de estudiantes en la rama stage.
+#   PR a stage:   valida, construye, escanea y prueba en un cluster kind dentro del runner.
+#   Merge a stage: publica en GHCR y actualiza gitops/stage/; Argo CD despliega.
+# Los PR desde forks no reciben secretos. Ajuste obligatorio del repo: exigir aprobación para
+# ejecutar workflows de colaboradores externos.
+name: exercises
+
+on:
+  pull_request:
+    branches: [stage]
+  push:
+    branches: [stage]
+    paths: ["exercises/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exercises-${{ github.event.pull_request.number || 'stage' }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/andresm98/agentic-platform/exercises
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.plan.outputs.changed }}
+      removed: ${{ steps.plan.outputs.removed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Valida y calcula qué publicar
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+          # El PR de main a stage actualiza la plataforma: lo revisa el instructor.
+          PLATFORM_SYNC: ${{ github.head_ref == 'main' && github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            scope="--scope"
+            if [ "$PLATFORM_SYNC" = true ]; then scope=""; fi
+            # shellcheck disable=SC2086
+            python3 scripts/exercises/exercises.py plan --base "$PR_BASE" --head "$PR_HEAD" $scope
+          else
+            python3 scripts/exercises/exercises.py plan --base "$PUSH_BASE" --head "$PUSH_HEAD"
+          fi
+
+  verify:
+    needs: plan
+    if: github.event_name == 'pull_request' && needs.plan.outputs.changed != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        name: ${{ fromJSON(needs.plan.outputs.changed) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        env:
+          NAME: ${{ matrix.name }}
+        run: docker build -t "exercise-smoke:$NAME" "exercises/$NAME"
+      - name: Trivy (falla en CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: exercise-smoke:${{ matrix.name }}
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Despliegue de prueba en kind
+        env:
+          NAME: ${{ matrix.name }}
+        run: bash scripts/exercises/kind-smoke.sh "$NAME"
+
+  publish:
+    needs: plan
+    if: github.event_name == 'push' && needs.plan.outputs.changed != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        name: ${{ fromJSON(needs.plan.outputs.changed) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # Sin caché compartida: es código de terceros. Se publica exactamente lo escaneado.
+      - name: Build (layout OCI, sin push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: exercises/${{ matrix.name }}
+          platforms: linux/amd64
+          outputs: type=oci,tar=false,dest=${{ runner.temp }}/oci
+          provenance: false
+          sbom: false
+          labels: |
+            org.opencontainers.image.source=https://github.com/Andresm98/03-agentic-platform-swe
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Trivy (falla en CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          input: ${{ runner.temp }}/oci
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+      - name: Push a GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ env.REGISTRY }}:${{ matrix.name }}-${{ github.sha }}
+          OCI: ${{ runner.temp }}/oci
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GH_TOKEN" | crane auth login ghcr.io -u "$ACTOR" --password-stdin
+          crane push "$OCI" "$IMAGE"
+
+  promote:
+    needs: [plan, publish]
+    # publish se omite cuando solo se retiran ejercicios.
+    if: >-
+      always() && github.event_name == 'push' && needs.plan.result == 'success'
+      && (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+      && (needs.plan.outputs.changed != '[]' || needs.plan.outputs.removed != '[]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: stage
+      - name: Actualiza gitops/stage y hace commit
+        env:
+          CHANGED: ${{ needs.plan.outputs.changed }}
+          REMOVED: ${{ needs.plan.outputs.removed }}
+          SHA: ${{ github.sha }}
+        run: |
+          python3 scripts/exercises/exercises.py sync \
+            --changed "$CHANGED" --removed "$REMOVED" --sha "$SHA" --out-dir gitops/stage
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gitops/stage
+          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+          git commit -m "chore(stage): deploy exercises at $SHA"
+          for attempt in 1 2 3; do
+            git pull --rebase origin stage && git push origin HEAD:stage && exit 0
+            sleep $((attempt * 5))
+          done
+          exit 1

@@ -1,0 +1,60 @@
+# Etapa 3: escribe image.tag en gitops/ y hace commit; Argo CD despliega.
+# El commit hecho con GITHUB_TOKEN no redispara workflows: no hay bucle.
+name: _gitops-promote
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitops-promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - name: Actualiza image.tag de cada servicio
+        uses: mikefarah/yq@a4330671f17776618660a419ab2531e4f4dc48b6 # v4.54.2
+        env:
+          TAG: ${{ inputs.tag }}
+        with:
+          cmd: >-
+            yq -i '.image.tag = strenv(TAG)'
+            gitops/apps/agents/orchestrator/values.yaml
+            gitops/apps/agents/researcher/values.yaml
+            gitops/apps/agents/analyst/values.yaml
+            gitops/apps/agents/executor/values.yaml
+            gitops/apps/llm-gateway/values.yaml
+            gitops/apps/fake-llm/values.yaml
+      - name: Actualiza la imagen del Job de JetStream
+        uses: mikefarah/yq@a4330671f17776618660a419ab2531e4f4dc48b6 # v4.54.2
+        env:
+          TAG: ${{ inputs.tag }}
+        with:
+          cmd: yq -i '.images[0].newTag = strenv(TAG)' gitops/apps/dapr/kustomization.yaml
+      - name: Commit
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gitops/apps
+          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+          git commit -m "chore(gitops): promote images to $TAG"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 5))
+          done
+          exit 1

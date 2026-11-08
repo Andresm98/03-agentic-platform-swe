@@ -1,0 +1,52 @@
+# Orquestador del pipeline (ADR-0001 §2). Etapas: CI -> imágenes -> promoción GitOps.
+# GitHub Actions nunca aplica nada al cluster: el cluster solo cambia porque Argo CD lee Git.
+name: main
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore: ["docs/**"]
+  pull_request:
+    branches: [main, develop]
+    paths-ignore: ["docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: "Stage 1 / CI"
+    uses: ./.github/workflows/_ci.yml
+    permissions:
+      contents: read
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  iac-scan:
+    name: "Stage 1 / IaC scan"
+    uses: ./.github/workflows/_iac-scan.yml
+    permissions:
+      contents: read
+
+  images:
+    name: "Stage 2 / Images"
+    needs: [ci, iac-scan]
+    uses: ./.github/workflows/_images.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+  promote:
+    name: "Stage 3 / GitOps promotion"
+    needs: [images]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/_gitops-promote.yml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ github.sha }}

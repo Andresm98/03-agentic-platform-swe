@@ -1,0 +1,38 @@
+{{- if .Values.keda.enabled }}
+{{- $name := include "agent-service.name" . -}}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $name }}
+  labels: {{- include "agent-service.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ $name }}
+  minReplicaCount: {{ .Values.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.keda.maxReplicaCount }}
+  pollingInterval: {{ .Values.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.keda.cooldownPeriod }}
+  {{- with .Values.keda.behavior }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior: {{- toYaml . | nindent 8 }}
+  {{- end }}
+  triggers:
+    - type: nats-jetstream
+      metadata:
+        natsServerMonitoringEndpoint: {{ .Values.keda.nats.monitoringEndpoint | quote }}
+        account: {{ .Values.keda.nats.account | quote }}
+        stream: {{ .Values.keda.nats.stream | quote }}
+        consumer: {{ default $name .Values.keda.nats.consumer | quote }}
+        lagThreshold: {{ .Values.keda.nats.lagThreshold | quote }}
+        activationLagThreshold: {{ .Values.keda.nats.activationLagThreshold | quote }}
+        useHttps: "false"
+    {{- if .Values.keda.cpu.enabled }}
+    # Mide solo el contenedor de la app, no el sidecar (ADR-0002 §5).
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: {{ .Values.keda.cpu.utilization | quote }}
+        containerName: {{ $name | quote }}
+    {{- end }}
+{{- end }}

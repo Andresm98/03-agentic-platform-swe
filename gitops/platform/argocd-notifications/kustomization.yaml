@@ -1,0 +1,9 @@
+# Argo CD Notifications -> GitHub Deployments (ADR-0001 §2, flujo de vuelta).
+# El chart de Argo CD (bootstrap L1) no crea ni el ConfigMap ni el Secret: los gestiona
+# esta Application para que la configuración cambie por Git.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+resources:
+  - external-secret.yaml
+  - notifications-cm.yaml

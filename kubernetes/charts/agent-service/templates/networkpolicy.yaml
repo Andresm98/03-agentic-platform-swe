@@ -1,0 +1,115 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $in := .Values.networkPolicy.ingress -}}
+{{- $out := .Values.networkPolicy.egress -}}
+{{- $port := .Values.containerPort -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "agent-service.name" . }}
+  labels: {{- include "agent-service.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "agent-service.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # Alloy -> métricas de la app y del sidecar.
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+      ports:
+        - { port: {{ $port }}, protocol: TCP }
+        - { port: 9090, protocol: TCP }
+    {{- if .Values.dapr.enabled }}
+    # daprd <-> daprd entre réplicas (gRPC interno, 50002): actores y actividades de Workflow.
+    - from:
+        - podSelector:
+            matchLabels: {{- include "agent-service.selectorLabels" . | nindent 14 }}
+      ports:
+        - { port: 50002, protocol: TCP }
+    {{- end }}
+    {{- if $in.traefik }}
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: traefik } }
+      ports:
+        - { port: {{ $port }}, protocol: TCP }
+    {{- end }}
+    {{- if $in.fleet }}
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/part-of: agentic-fleet } }
+      ports:
+        - { port: {{ $port }}, protocol: TCP }
+    {{- end }}
+    {{- if $in.gateway }}
+    - from:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: llm-gateway } }
+      ports:
+        - { port: {{ $port }}, protocol: TCP }
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    {{- if $out.daprControlPlane }}
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: dapr-system } }
+      ports:
+        - { port: 80, protocol: TCP }    # operator
+        - { port: 6500, protocol: TCP }  # operator (API)
+        - { port: 50001, protocol: TCP } # sentry y scheduler/placement según servicio
+        - { port: 50005, protocol: TCP } # placement
+        - { port: 50006, protocol: TCP } # scheduler
+    {{- end }}
+    {{- if .Values.dapr.enabled }}
+    - to:
+        - podSelector:
+            matchLabels: {{- include "agent-service.selectorLabels" . | nindent 14 }}
+      ports:
+        - { port: 50002, protocol: TCP }
+    {{- end }}
+    {{- if or $out.nats $out.natsMonitor }}
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: nats } }
+      ports:
+        {{- if $out.nats }}
+        - { port: 4222, protocol: TCP }
+        {{- end }}
+        {{- if $out.natsMonitor }}
+        - { port: 8222, protocol: TCP }
+        {{- end }}
+    {{- end }}
+    {{- if $out.redis }}
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: data } }
+      ports:
+        - { port: 6379, protocol: TCP }
+    {{- end }}
+    {{- if $out.llmGateway }}
+    - to:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: llm-gateway } }
+      ports:
+        - { port: {{ $port }}, protocol: TCP }
+    {{- end }}
+    {{- if $out.fakeLlm }}
+    - to:
+        - podSelector: { matchLabels: { app.kubernetes.io/name: fake-llm } }
+      ports:
+        - { port: {{ $port }}, protocol: TCP }
+    {{- end }}
+    {{- if $out.otlp }}
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+      ports:
+        - { port: 4317, protocol: TCP }
+        - { port: 4318, protocol: TCP }
+    {{- end }}
+    {{- if $out.internet443 }}
+    # Solo llm-gateway. La NetworkPolicy no filtra por dominio (ADR-0002 §3).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [169.254.0.0/16, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+      ports:
+        - { port: 443, protocol: TCP }
+    {{- end }}
+{{- end }}

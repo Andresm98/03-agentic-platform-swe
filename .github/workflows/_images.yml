@@ -1,0 +1,97 @@
+# Etapa 2: UN SOLO build por servicio. Se construye a un layout OCI, se escanea ese artefacto y
+# se publica exactamente ese artefacto: lo publicado es lo verificado (ADR-0001 §2).
+# SBOM y provenance se adjuntan al digest publicado como attestations de GitHub.
+name: _images
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        type: boolean
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io/andresm98/agentic-platform
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { service: orchestrator, dockerfile: agents/orchestrator/Dockerfile }
+          - { service: researcher, dockerfile: agents/researcher/Dockerfile }
+          - { service: analyst, dockerfile: agents/analyst/Dockerfile }
+          - { service: executor, dockerfile: agents/executor/Dockerfile }
+          - { service: llm-gateway, dockerfile: llm-gateway/Dockerfile }
+          - { service: fake-llm, dockerfile: fake-llm/Dockerfile }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build (layout OCI, sin push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: apps
+          file: apps/${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          outputs: type=oci,tar=false,dest=${{ runner.temp }}/oci
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Andresm98/03-agentic-platform-swe
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Trivy (falla en CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          input: ${{ runner.temp }}/oci
+          severity: CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          input: ${{ runner.temp }}/oci
+          format: cyclonedx
+          output: ${{ runner.temp }}/sbom.cdx.json
+          exit-code: "0"
+      - uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+        if: inputs.push
+      - name: Push a GHCR (:sha)
+        id: push
+        if: inputs.push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ env.REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
+          OCI: ${{ runner.temp }}/oci
+          ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GH_TOKEN" | crane auth login ghcr.io -u "$ACTOR" --password-stdin
+          crane push "$OCI" "$IMAGE" --image-refs "$RUNNER_TEMP/refs"
+          digest="$(cut -d@ -f2 "$RUNNER_TEMP/refs" | head -1)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Provenance
+        if: inputs.push
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ matrix.service }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+      - name: Attestation del SBOM
+        if: inputs.push
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ matrix.service }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: ${{ runner.temp }}/sbom.cdx.json
+          push-to-registry: true

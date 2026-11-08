@@ -1,0 +1,26 @@
+# Pub/sub sobre JetStream (CONTRACTS §7). Un solo componente `pubsub` con credenciales por app:
+# natsURL llega por envRef desde `dapr.io/env-from-secret` del Deployment (verificado en el código de
+# dapr 1.19.1). Probado de punta a punta en compose con durableName/queueGroupName = {appID}.
+# ackWait, maxDeliver, maxAckPending y deliverPolicy deben coincidir con el Job de JetStream.
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  type: pubsub.jetstream
+  version: v1
+  metadata:
+    - { name: natsURL, envRef: NATS_URL }
+    - { name: streamName, value: "TASKS" }
+    - { name: durableName, value: "{appID}" }
+    - { name: queueGroupName, value: "{appID}" }
+    - { name: deliverPolicy, value: "all" }
+    - { name: ackPolicy, value: "explicit" }
+    - { name: ackWait, value: "60s" }
+    - { name: maxDeliver, value: "5" }
+    - { name: maxAckPending, value: "100" }
+    - { name: publishingScopes, value: "orchestrator=tasks.created,tasks.completed,tasks.dead,agent.research.requested,agent.analysis.requested,agent.execution.requested;researcher=agent.research.completed,tasks.dead;analyst=agent.analysis.completed,tasks.evaluated,tasks.dead;executor=agent.execution.completed,tasks.dead" }
+    - { name: subscriptionScopes, value: "orchestrator=agent.*.completed;researcher=agent.research.requested;analyst=agent.analysis.requested;executor=agent.execution.requested" }
+scopes: [orchestrator, researcher, analyst, executor]

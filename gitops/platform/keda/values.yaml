@@ -1,0 +1,29 @@
+# KEDA 2.21.0. Sync-wave -5. Escalador nats-jetstream + CPU (ADR-0002 §5). Imágenes en ghcr.io.
+nodeSelector:
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+
+resources:
+  operator:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+  metricServer:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+  webhooks:
+    requests: { cpu: 10m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+prometheus:
+  operator:
+    enabled: true
+  metricServer:
+    enabled: true
+
+podAnnotations:
+  keda:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: /metrics

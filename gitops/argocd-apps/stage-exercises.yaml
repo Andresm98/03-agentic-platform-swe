@@ -1,0 +1,55 @@
+# Una Application por directorio de gitops/stage/* en la rama stage. CI crea cada directorio
+# después de publicar la imagen; al retirar un ejercicio, Argo CD elimina sus recursos.
+# El chart se lee de main: la rama stage solo aporta los values.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: stage-exercises
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+        revision: stage
+        directories:
+          - path: gitops/stage/*
+  template:
+    metadata:
+      name: 'exercise-{{ .path.basename }}'
+      labels:
+        app.kubernetes.io/part-of: agentic-platform
+        agentic.io/layer: stage
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: stage
+      sources:
+        - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+          targetRevision: main
+          path: kubernetes/charts/agent-service
+          helm:
+            releaseName: '{{ .path.basename }}'
+            valueFiles:
+              - '$values/{{ .path.path }}/values.yaml'
+        - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+          targetRevision: stage
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: stage
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 3m

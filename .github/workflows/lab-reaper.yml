@@ -1,0 +1,79 @@
+# Red de seguridad contra olvidos (ADR-0001 §5): destruye el lab si su tag CreatedAt supera
+# LAB_TTL_HOURS (6 h por defecto).
+#
+# Usa el environment lab-reaper (sin revisores, solo rama main) y role/agentic-github-reaper,
+# que no puede crear recursos. Con el environment lab, cada cron quedaría esperando aprobación
+# y el reaper no protegería de nada. Ver docs/validation/platform.md, "Desviaciones".
+name: lab-reaper
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: lab
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TERRAFORM_VERSION: "1.14.5"
+  AWS_REGION: us-east-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VAR_owner: ${{ vars.LAB_OWNER }}
+  TF_VAR_ami_id: ${{ vars.LAB_AMI_ID }}
+  TF_VAR_permissions_boundary_arn: ${{ vars.PERMISSIONS_BOUNDARY_ARN }}
+  TF_VAR_grafana_cloud_aws_account_id: ${{ vars.GRAFANA_CLOUD_AWS_ACCOUNT_ID }}
+  TF_VAR_grafana_cloudwatch_external_id: ${{ vars.GRAFANA_CLOUDWATCH_EXTERNAL_ID }}
+  LAB_TTL_HOURS: ${{ vars.LAB_TTL_HOURS || '6' }}
+
+jobs:
+  reap:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: lab-reaper
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+      - name: Comprobar la antigüedad del lab
+        id: age
+        run: |
+          created="$(aws ec2 describe-vpcs --filters Name=tag:Project,Values=agentic-platform \
+            --query "Vpcs[0].Tags[?Key=='CreatedAt'] | [0].Value" --output text)"
+          if [ -z "$created" ] || [ "$created" = "None" ]; then
+            echo "No hay lab activo."
+            echo "expired=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          age_hours=$(( ( $(date -u +%s) - $(date -u -d "$created" +%s) ) / 3600 ))
+          echo "Lab creado en $created: ${age_hours} h (TTL ${LAB_TTL_HOURS} h)."
+          if [ "$age_hours" -ge "$LAB_TTL_HOURS" ]; then
+            echo "expired=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "expired=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        if: steps.age.outputs.expired == 'true'
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - name: terraform destroy
+        if: steps.age.outputs.expired == 'true'
+        working-directory: infra/terraform/envs/lab
+        run: |
+          terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          terraform destroy -auto-approve
+      - name: cost-check
+        if: steps.age.outputs.expired == 'true'
+        run: bash infra/scripts/cost-check.sh

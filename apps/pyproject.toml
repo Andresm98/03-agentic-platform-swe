@@ -1,0 +1,247 @@
+# Workspace uv de la flota agéntica (equipo A).
+# Runtime: la imagen distroless python3-debian12 trae Python 3.11.2 (verificado), por eso el
+# código y el lock apuntan a 3.11 y el builder de Docker usa python:3.11-slim-bookworm.
+[project]
+name = "agentic-fleet-workspace"
+version = "0.0.0"
+requires-python = ">=3.11,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "pytest>=9.0,<10",
+  "pytest-asyncio>=1.0,<2",
+  "pytest-cov>=7.0,<8",
+  "ruff>=0.17,<0.18",
+  "mypy>=1.18,<3",
+  "import-linter>=2.3,<3",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = [
+  "common/agentlib",
+  "agents/orchestrator",
+  "agents/researcher",
+  "agents/analyst",
+  "agents/executor",
+  "llm-gateway",
+  "fake-llm",
+]
+
+[tool.uv.sources]
+agentlib = { workspace = true }
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF"]
+ignore = ["E501", "S101", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["agentlib", "orchestrator", "researcher", "analyst", "executor", "llm_gateway", "fake_llm"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S", "B011"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q --import-mode=importlib"
+
+[tool.coverage.run]
+branch = true
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true
+
+[tool.importlinter]
+root_packages = ["agentlib", "orchestrator", "researcher", "analyst", "executor", "llm_gateway", "fake_llm"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "agentlib: capas (dependencias solo hacia dentro)"
+type = "layers"
+containers = ["agentlib"]
+layers = ["bootstrap", "adapters", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "agentlib.domain: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["agentlib.domain"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "agentlib.application: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["agentlib.application"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "orchestrator: capas (dependencias solo hacia dentro)"
+type = "layers"
+containers = ["orchestrator"]
+layers = ["bootstrap", "adapters", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "orchestrator.domain: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["orchestrator.domain"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap", "agentlib.application"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "orchestrator.application: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["orchestrator.application"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "orchestrator: inbound y outbound independientes"
+type = "independence"
+modules = ["orchestrator.adapters.inbound", "orchestrator.adapters.outbound"]
+
+[[tool.importlinter.contracts]]
+name = "researcher: capas (dependencias solo hacia dentro)"
+type = "layers"
+containers = ["researcher"]
+layers = ["bootstrap", "adapters", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "researcher.domain: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["researcher.domain"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap", "agentlib.application"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "researcher.application: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["researcher.application"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "researcher: inbound y outbound independientes"
+type = "independence"
+modules = ["researcher.adapters.inbound", "researcher.adapters.outbound"]
+
+[[tool.importlinter.contracts]]
+name = "analyst: capas (dependencias solo hacia dentro)"
+type = "layers"
+containers = ["analyst"]
+layers = ["bootstrap", "adapters", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "analyst.domain: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["analyst.domain"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap", "agentlib.application"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "analyst.application: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["analyst.application"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "analyst: inbound y outbound independientes"
+type = "independence"
+modules = ["analyst.adapters.inbound", "analyst.adapters.outbound"]
+
+[[tool.importlinter.contracts]]
+name = "executor: capas (dependencias solo hacia dentro)"
+type = "layers"
+containers = ["executor"]
+layers = ["bootstrap", "adapters", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "executor.domain: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["executor.domain"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap", "agentlib.application"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "executor.application: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["executor.application"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "executor: inbound y outbound independientes"
+type = "independence"
+modules = ["executor.adapters.inbound", "executor.adapters.outbound"]
+
+[[tool.importlinter.contracts]]
+name = "llm_gateway: capas (dependencias solo hacia dentro)"
+type = "layers"
+containers = ["llm_gateway"]
+layers = ["bootstrap", "adapters", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "llm_gateway.domain: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["llm_gateway.domain"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap", "agentlib.application"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "llm_gateway.application: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["llm_gateway.application"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "llm_gateway: inbound y outbound independientes"
+type = "independence"
+modules = ["llm_gateway.adapters.inbound", "llm_gateway.adapters.outbound"]
+
+[[tool.importlinter.contracts]]
+name = "fake_llm: capas (dependencias solo hacia dentro)"
+type = "layers"
+containers = ["fake_llm"]
+layers = ["bootstrap", "adapters", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "fake_llm.domain: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["fake_llm.domain"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap", "agentlib.application"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "fake_llm.application: sin frameworks ni adaptadores"
+type = "forbidden"
+source_modules = ["fake_llm.application"]
+forbidden_modules = ["fastapi", "starlette", "dapr", "openai", "nats", "opentelemetry", "prometheus_client", "httpx", "httpx2", "pydantic", "uvicorn", "grpc", "agentlib.adapters", "agentlib.bootstrap"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "fake_llm: inbound y outbound independientes"
+type = "independence"
+modules = ["fake_llm.adapters.inbound", "fake_llm.adapters.outbound"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = false
+disallow_untyped_decorators = false
+disallow_any_generics = false
+ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "common/agentlib/src:agents/orchestrator/src:agents/researcher/src:agents/analyst/src:agents/executor/src:llm-gateway/src:fake-llm/src"

@@ -1,0 +1,39 @@
+# Dependabot: mantiene fijadas y al día las dependencias del repo.
+# Las acciones van fijadas por commit SHA; Dependabot actualiza el SHA y el comentario del tag.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Apps Python (uv / pyproject.toml). Un directorio por servicio.
+  - package-ecosystem: uv
+    directory: /apps            # raíz del workspace de uv (apps/uv.lock)
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]
+
+  # Terraform (providers fijados en .terraform.lock.hcl).
+  - package-ecosystem: terraform
+    directories:
+      - /infra/terraform/bootstrap
+      - /infra/terraform/envs/lab
+      - /infra/terraform/modules/*
+      - /observability/terraform
+    schedule:
+      interval: weekly
+
+  # Imágenes base de los Dockerfile (builder python y distroless por digest).
+  - package-ecosystem: docker
+    directories:
+      - /apps/agents/*
+      - /apps/llm-gateway
+      - /apps/fake-llm
+    schedule:
+      interval: weekly

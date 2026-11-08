@@ -1,0 +1,44 @@
+# Flujo de vuelta (ADR-0001 §2): Argo CD Notifications crea un GitHub Deployment al quedar Healthy;
+# este workflow lo verifica desde fuera, contra el NLB, y marca el commit. No toca el cluster.
+name: post-deploy
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'aws-lab'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      statuses: write
+    env:
+      # TODO(verify): el DNS del NLB cambia en cada `lab.yml up`; la variable debe actualizarse.
+      NLB_URL: ${{ vars.NLB_URL }}
+      SHA: ${{ github.event.deployment.sha }}
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            apps/compose
+      - name: Smoke contra el NLB
+        id: smoke
+        if: env.NLB_URL != ''
+        run: BASE="$NLB_URL" SKIP_READYZ=1 TASK_TIMEOUT_S=300 bash apps/compose/smoke.sh
+      - name: Sin NLB_URL
+        if: env.NLB_URL == ''
+        run: echo "::warning::Variable NLB_URL no definida; smoke omitido."
+      - name: Estado del commit
+        if: always() && env.NLB_URL != ''
+        env:
+          OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          state=failure; [ "$OUTCOME" = success ] && state=success
+          gh api "repos/$REPO/statuses/$SHA" -f state="$state" -f context="post-deploy/smoke" \
+            -f description="Smoke test contra el NLB: $OUTCOME"

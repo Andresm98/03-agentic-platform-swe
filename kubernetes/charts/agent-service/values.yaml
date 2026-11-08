@@ -1,0 +1,91 @@
+# Valores por defecto. Cada servicio los sobrescribe en gitops/apps/**/values.yaml.
+image:
+  repository: ""            # obligatorio
+  tag: "0.0.0-dev"          # solo lo cambia CI (_gitops-promote.yml); nunca latest
+  pullPolicy: IfNotPresent
+
+# Solo se usa si keda.enabled=false (con KEDA, el dueño de las réplicas es su HPA).
+replicaCount: 1
+
+containerPort: 8000
+terminationGracePeriodSeconds: 60
+
+# Variables no secretas: van al ConfigMap.
+env: {}
+# Variables tomadas del Secret generado por el ExternalSecret: [{name: X, key: Y}]
+secretEnv: []
+
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { memory: 256Mi }
+
+nodeSelector: { platform.io/pool: apps }
+tolerations: []
+
+dapr:
+  enabled: true
+  config: tracing
+  maxConcurrency: 10
+  sidecar: { cpuRequest: 25m, memoryRequest: 48Mi, cpuLimit: 200m, memoryLimit: 128Mi }
+  # Inyecta NATS_URL en el sidecar desde el Secret del servicio (componente pubsub: envRef).
+  natsUrlFromSecret: true
+
+probes:
+  startup: { failureThreshold: 30, periodSeconds: 2, timeoutSeconds: 2 }
+  liveness: { periodSeconds: 10, timeoutSeconds: 3, failureThreshold: 3 }
+  readiness: { periodSeconds: 5, timeoutSeconds: 3, failureThreshold: 3 }
+
+externalSecret:
+  enabled: false
+  refreshInterval: 1h
+  storeName: aws-ssm
+  # [{secretKey: x, remoteKey: /agentic-platform/k8s/...}]
+  data: []
+  # Claves del Secret final. Plantillas de ESO, se copian literalmente.
+  template: {}
+
+pdb:
+  enabled: true
+  maxUnavailable: 1
+  # minAvailable tiene prioridad sobre maxUnavailable si se define.
+  minAvailable: null
+
+keda:
+  enabled: false
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  pollingInterval: 10
+  cooldownPeriod: 60
+  nats:
+    monitoringEndpoint: nats.nats.svc.cluster.local:8222
+    account: $G
+    stream: TASKS
+    consumer: ""            # por defecto, el nombre de la release
+    lagThreshold: 5
+    activationLagThreshold: 0
+  cpu:
+    enabled: false
+    utilization: 60
+  behavior: {}
+
+networkPolicy:
+  enabled: true
+  ingress:
+    traefik: false          # traefik -> este servicio
+    fleet: false            # agentes -> este servicio (llm-gateway)
+    gateway: false          # llm-gateway -> este servicio (fake-llm)
+  egress:
+    daprControlPlane: true
+    nats: false
+    natsMonitor: false
+    redis: false
+    llmGateway: false
+    fakeLlm: false
+    otlp: true
+    internet443: false      # solo llm-gateway
+
+ingress:
+  enabled: false
+  className: traefik
+  path: /tasks
+  middlewares: traefik-rate-limit@kubernetescrd,traefik-body-limit@kubernetescrd

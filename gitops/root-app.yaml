@@ -1,0 +1,36 @@
+# App-of-apps (CONTRACTS §8). La copia el user-data del control plane a
+# /var/lib/rancher/k3s/server/manifests/ cuando existen los CRDs de Argo CD.
+# Recorre gitops/argocd-apps/: platform-*.yaml (equipo P) y fleet-*.yaml (equipo A).
+# Perfil local: gitops/clusters/local-k3d/root-app.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/cluster: aws-lab
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+    targetRevision: main
+    path: gitops/argocd-apps
+    directory:
+      recurse: true
+      include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 5m

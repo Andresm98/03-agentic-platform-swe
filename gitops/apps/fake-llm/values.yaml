@@ -1,0 +1,29 @@
+# fake-llm: simula una dependencia externa, por eso corre en el control plane (ADR-0002 §3).
+image:
+  repository: ghcr.io/andresm98/agentic-platform/fake-llm
+  tag: "0.0.0-dev"
+replicaCount: 1
+env:
+  FAKE_LATENCY_MEDIAN_MS: "300"
+  FAKE_LATENCY_SIGMA: "0.5"
+  FAKE_ERROR_RATE_429: "0"
+  FAKE_ERROR_RATE_500: "0"
+  FAKE_TIMEOUT_RATE: "0"
+  OTEL_ENABLED: "false"
+resources:
+  requests: { cpu: 50m, memory: 96Mi }
+  limits: { memory: 192Mi }
+nodeSelector:
+  node-role.kubernetes.io/control-plane: "true"
+tolerations:
+  - { key: CriticalAddonsOnly, operator: Exists, effect: NoExecute }
+dapr:
+  enabled: false
+pdb:
+  enabled: false
+networkPolicy:
+  ingress:
+    gateway: true
+  egress:
+    daprControlPlane: false
+    otlp: false

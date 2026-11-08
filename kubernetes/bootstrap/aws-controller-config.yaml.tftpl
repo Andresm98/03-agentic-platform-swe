@@ -1,0 +1,51 @@
+# L1: AWS_CONFIG_FILE de cada controlador (ADR-0002 §2). Terraform inyecta los ARN
+# (templatefile) para que ningún ID de cuenta ni ARN viva en gitops/. CCM, CA y ESO montan
+# estos ConfigMaps y asumen su rol con las credenciales del nodo CP (IMDS hop 2).
+# Variables: ccm_role_arn, cluster_autoscaler_role_arn, external_secrets_role_arn, region.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentic-aws-ccm
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+data:
+  config: |
+    [default]
+    role_arn = ${ccm_role_arn}
+    credential_source = Ec2InstanceMetadata
+    region = ${region}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentic-aws-cluster-autoscaler
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+data:
+  config: |
+    [default]
+    role_arn = ${cluster_autoscaler_role_arn}
+    credential_source = Ec2InstanceMetadata
+    region = ${region}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentic-aws-external-secrets
+  namespace: external-secrets
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+data:
+  config: |
+    [default]
+    role_arn = ${external_secrets_role_arn}
+    credential_source = Ec2InstanceMetadata
+    region = ${region}
