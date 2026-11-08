@@ -82,7 +82,7 @@ gh variable set AWS_ROLE_ARN --env observability --body "<rol observability>"
 
 ## 3. SonarCloud
 
-**Para qué:** análisis de calidad en CI. Sin este token, la primera etapa de `main.yml` falla.
+**Para qué:** análisis de calidad en CI. Sin este token, `main.yml` sigue adelante, pero omite el análisis.
 
 1. Entra en sonarcloud.io con GitHub e importa el repositorio.
 2. Comprueba que la organización es `andresm98` y el proyecto `Andresm98_03-agentic-platform-swe`. Si difieren, ajusta `.github/workflows/_ci.yml`.
@@ -176,12 +176,12 @@ rm ~/agentic-secrets.env
 
 ## 9. Imágenes en GHCR
 
-1. Relanza `main.yml` si el primer push falló por falta de `SONAR_TOKEN`:
+1. Relanza `main.yml` para analizar con `SONAR_TOKEN` el último commit:
    ```bash
    gh workflow run main.yml --ref main
    ```
 2. Ejecuta el mirror: `gh workflow run mirror-images.yml --ref main`.
-3. Los paquetes nacen privados. En *tu perfil → Packages → Package settings*, cambia a **Public** cada uno:
+3. Comprueba que estos paquetes sean públicos. Si alguno no lo es, cámbialo en *tu perfil → Packages → Package settings*:
    - **Apps:** `orchestrator`, `researcher`, `analyst`, `executor`, `llm-gateway`, `fake-llm`.
    - **Mirror:** `mirror/traefik`, `mirror/nats`, `mirror/nats-server-config-reloader`, `mirror/prometheus-nats-exporter`, `mirror/redis`, `mirror/alloy`.
 

@@ -1,7 +1,7 @@
 # orchestrator. image.tag solo lo escribe CI.
 image:
   repository: ghcr.io/andresm98/agentic-platform/orchestrator
-  tag: "40f6dcde9cc3b68cc03cb5308e7a8a754e9143a1"
+  tag: "0.0.0-dev"
 env:
   LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
   LLM_MODEL: gpt-4o-mini
@@ -13,17 +13,17 @@ env:
   MAX_BODY_BYTES: "16384"
   MAX_STEPS: "6"
 secretEnv:
-  - {name: DEMO_TOKEN, key: DEMO_TOKEN}
+  - { name: DEMO_TOKEN, key: DEMO_TOKEN }
 resources:
-  requests: {cpu: 100m, memory: 128Mi}
-  limits: {memory: 256Mi}
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { memory: 256Mi }
 dapr:
   maxConcurrency: 10
 externalSecret:
   enabled: true
   data:
-    - {secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/orchestrator-password}
-    - {secretKey: demoToken, remoteKey: /agentic-platform/k8s/demo-token}
+    - { secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/orchestrator-password }
+    - { secretKey: demoToken, remoteKey: /agentic-platform/k8s/demo-token }
   template:
     NATS_URL: "nats://orchestrator:{{ .natsPassword | urlquery }}@nats.nats.svc.cluster.local:4222"
     DEMO_TOKEN: "{{ .demoToken }}"
@@ -41,188 +41,3 @@ networkPolicy:
     traefik: true
 ingress:
   enabled: true
----
-# researcher. image.tag solo lo escribe CI.
-image:
-  repository: ghcr.io/andresm98/agentic-platform/researcher
-  tag: "40f6dcde9cc3b68cc03cb5308e7a8a754e9143a1"
-env:
-  LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
-  LLM_MODEL: gpt-4o-mini
-  LLM_MAX_TOKENS: "200"
-  OTEL_ENABLED: "true"
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317
-resources:
-  requests: {cpu: 100m, memory: 128Mi}
-  limits: {memory: 256Mi}
-dapr:
-  maxConcurrency: 10
-externalSecret:
-  enabled: true
-  data:
-    - {secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/researcher-password}
-  template:
-    NATS_URL: "nats://researcher:{{ .natsPassword | urlquery }}@nats.nats.svc.cluster.local:4222"
-keda:
-  enabled: true
-  minReplicaCount: 0
-  maxReplicaCount: 3
-networkPolicy:
-  egress:
-    nats: true
-    llmGateway: true
----
-# analyst. image.tag solo lo escribe CI.
-image:
-  repository: ghcr.io/andresm98/agentic-platform/analyst
-  tag: "40f6dcde9cc3b68cc03cb5308e7a8a754e9143a1"
-env:
-  LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
-  LLM_MODEL: gpt-4o-mini
-  LLM_MAX_TOKENS: "200"
-  OTEL_ENABLED: "true"
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317
-resources:
-  requests: {cpu: 100m, memory: 128Mi}
-  limits: {memory: 256Mi}
-dapr:
-  maxConcurrency: 10
-externalSecret:
-  enabled: true
-  data:
-    - {secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/analyst-password}
-  template:
-    NATS_URL: "nats://analyst:{{ .natsPassword | urlquery }}@nats.nats.svc.cluster.local:4222"
-keda:
-  enabled: true
-  minReplicaCount: 0
-  maxReplicaCount: 3
-networkPolicy:
-  egress:
-    nats: true
-    llmGateway: false
----
-# executor. image.tag solo lo escribe CI.
-image:
-  repository: ghcr.io/andresm98/agentic-platform/executor
-  tag: "40f6dcde9cc3b68cc03cb5308e7a8a754e9143a1"
-env:
-  LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
-  LLM_MODEL: gpt-4o-mini
-  LLM_MAX_TOKENS: "200"
-  OTEL_ENABLED: "true"
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317
-  WORK_DURATION_MS: "500"
-resources:
-  requests: {cpu: 500m, memory: 192Mi}
-  limits: {cpu: 1000m, memory: 384Mi}
-dapr:
-  maxConcurrency: 2
-externalSecret:
-  enabled: true
-  data:
-    - {secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/executor-password}
-  template:
-    NATS_URL: "nats://executor:{{ .natsPassword | urlquery }}@nats.nats.svc.cluster.local:4222"
-keda:
-  enabled: true
-  minReplicaCount: 1
-  maxReplicaCount: 8
-  cpu:
-    enabled: true
-    utilization: 60
-  behavior:
-    scaleUp:
-      policies:
-        - {type: Pods, value: 2, periodSeconds: 30}
-    scaleDown:
-      stabilizationWindowSeconds: 120
-networkPolicy:
-  egress:
-    nats: true
-    llmGateway: true
----
-# llm-gateway: único con la API key y con salida 443. 2 réplicas fijas: cuello de botella intencionado.
-image:
-  repository: ghcr.io/andresm98/agentic-platform/llm-gateway
-  tag: "40f6dcde9cc3b68cc03cb5308e7a8a754e9143a1"
-replicaCount: 2
-env:
-  # Interruptor global en Git: simulated hasta la Fase H (ADR-0002 §6).
-  LLM_GLOBAL_MODE: simulated
-  FAKE_LLM_URL: http://fake-llm.apps.svc.cluster.local:8000/v1
-  NATS_URL: nats://nats.nats.svc.cluster.local:4222
-  NATS_USER: llm-gateway
-  LLM_BUDGET_USD: "3"
-  LIVE_TASKS_PER_MINUTE: "5"
-  LIVE_TASKS_TOTAL: "50"
-  TASK_MAX_LLM_CALLS: "6"
-  LLM_MAX_INPUT_TOKENS: "2000"
-  LLM_AGENT_MAX_TOKENS: '{"orchestrator": 300, "default": 200}'
-  # TODO(verify): precios en https://openai.com/api/pricing antes de la demo live.
-  LLM_ALLOWED_MODELS: '{"gpt-4o-mini": {"input_usd_per_1m": 0.15, "output_usd_per_1m": 0.60}, "gpt-4.1-nano": {"input_usd_per_1m": 0.10, "output_usd_per_1m": 0.40}}'
-  LANGSMITH_ENABLED: "true"
-  LANGSMITH_PROJECT: agentic-platform
-  LANGSMITH_SIMULATED_SAMPLE_RATE: "0.01"
-  OTEL_ENABLED: "true"
-  OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317
-secretEnv:
-  - {name: NATS_PASSWORD, key: NATS_PASSWORD}
-  - {name: OPENAI_API_KEY, key: OPENAI_API_KEY}
-  - {name: LANGSMITH_API_KEY, key: LANGSMITH_API_KEY}
-resources:
-  requests: {cpu: 100m, memory: 128Mi}
-  limits: {memory: 256Mi}
-# El gateway usa NATS directamente (KV) y no necesita sidecar.
-dapr:
-  enabled: false
-externalSecret:
-  enabled: true
-  data:
-    - {secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/llm-gateway-password}
-    - {secretKey: openaiApiKey, remoteKey: /agentic-platform/k8s/openai-api-key}
-    - {secretKey: langsmithApiKey, remoteKey: /agentic-platform/k8s/langsmith-api-key}
-  template:
-    NATS_PASSWORD: "{{ .natsPassword }}"
-    OPENAI_API_KEY: "{{ .openaiApiKey }}"
-    LANGSMITH_API_KEY: "{{ .langsmithApiKey }}"
-pdb:
-  minAvailable: 1
-networkPolicy:
-  ingress:
-    fleet: true
-  egress:
-    daprControlPlane: false
-    nats: true
-    fakeLlm: true
-    internet443: true
----
-# fake-llm: simula una dependencia externa, por eso corre en el control plane (ADR-0002 §3).
-image:
-  repository: ghcr.io/andresm98/agentic-platform/fake-llm
-  tag: "40f6dcde9cc3b68cc03cb5308e7a8a754e9143a1"
-replicaCount: 1
-env:
-  FAKE_LATENCY_MEDIAN_MS: "300"
-  FAKE_LATENCY_SIGMA: "0.5"
-  FAKE_ERROR_RATE_429: "0"
-  FAKE_ERROR_RATE_500: "0"
-  FAKE_TIMEOUT_RATE: "0"
-  OTEL_ENABLED: "false"
-resources:
-  requests: {cpu: 50m, memory: 96Mi}
-  limits: {memory: 192Mi}
-nodeSelector:
-  node-role.kubernetes.io/control-plane: "true"
-tolerations:
-  - {key: CriticalAddonsOnly, operator: Exists, effect: NoExecute}
-dapr:
-  enabled: false
-pdb:
-  enabled: false
-networkPolicy:
-  ingress:
-    gateway: true
-  egress:
-    daprControlPlane: false
-    otlp: false
