@@ -1,7 +1,7 @@
 # researcher. image.tag solo lo escribe CI.
 image:
   repository: ghcr.io/andresm98/agentic-platform/researcher
-  tag: "0.0.0-dev"
+  tag: "74fe3c02ad9772aaa80be92ffec62fe32fca70c5"
 env:
   LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
   LLM_MODEL: gpt-4o-mini
@@ -9,14 +9,14 @@ env:
   OTEL_ENABLED: "true"
   OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317
 resources:
-  requests: { cpu: 100m, memory: 128Mi }
-  limits: { memory: 256Mi }
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {memory: 256Mi}
 dapr:
   maxConcurrency: 10
 externalSecret:
   enabled: true
   data:
-    - { secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/researcher-password }
+    - {secretKey: natsPassword, remoteKey: /agentic-platform/k8s/nats/researcher-password}
   template:
     NATS_URL: "nats://researcher:{{ .natsPassword | urlquery }}@nats.nats.svc.cluster.local:4222"
 keda:
