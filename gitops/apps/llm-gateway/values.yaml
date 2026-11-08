@@ -1,7 +1,7 @@
 # llm-gateway: único con la API key y con salida 443. 2 réplicas fijas: cuello de botella intencionado.
 image:
   repository: ghcr.io/andresm98/agentic-platform/llm-gateway
-  tag: "0e98f4fc0f45d079013d6a3cf8b15fca5f7eb93c"
+  tag: "ac8b71f32aadaa84101ab7f5b50c923ad850a735"
 replicaCount: 2
 env:
   # Interruptor global en Git: simulated hasta la Fase H (ADR-0002 §6).
