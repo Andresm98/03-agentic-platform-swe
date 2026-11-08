@@ -270,7 +270,7 @@ Cargados con `infra/scripts/seed-secrets.sh`, con las contraseñas internas gene
 PUT .../mirror/nats/manifests/sha256:d7f535b0...: DENIED: requested access to the resource is denied
 ```
 
-Causa sin confirmar. Como el primer manifiesto del mismo paquete entró con el mismo token, la hipótesis es un fallo transitorio de GHCR al crear un paquete nuevo. Se comprueba al relanzar el workflow en el paso de imágenes.
+Al relanzarlo, `nats` y `nats-server-config-reloader` entraron, y el mismo error apareció en el siguiente paquete nuevo, `prometheus-nats-exporter`, también tras subir su primer manifiesto. El patrón apunta a un fallo intermitente de GHCR al crear un paquete nuevo, que se resuelve al reintentar. Se añadieron hasta 5 reintentos por imagen en `mirror-images.yml`; falta confirmarlo con una ejecución completa.
 
 **3. PR de Dependabot.** Los PR #1 a #6 proponían subir la imagen de build de Python de `3.11` a `3.15`. Se cerraron porque la imagen final distroless usa Python 3.11 y ambas versiones tienen que coincidir. Los PR #7 (`checkov-action`) y #8 (`hatchling`) pasan CI y siguen abiertos. No se fusionan antes de la defensa, para no cambiar versiones ya probadas.
 

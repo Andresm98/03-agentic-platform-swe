@@ -184,7 +184,7 @@ rm ~/agentic-secrets.env
 2. Ejecuta el mirror: `gh workflow run mirror-images.yml --ref main`.
 3. Comprueba que estos paquetes sean públicos. Si alguno no lo es, cámbialo en *tu perfil → Packages → Package settings*:
    - **Apps:** `orchestrator`, `researcher`, `analyst`, `executor`, `llm-gateway`, `fake-llm`.
-   - **Mirror:** `mirror/traefik`, `mirror/nats`, `mirror/nats-server-config-reloader`, `mirror/prometheus-nats-exporter`, `mirror/redis`, `mirror/alloy`.
+   - **Mirror:** `mirror/traefik`, `mirror/nats`, `mirror/natsio/nats-server-config-reloader`, `mirror/natsio/prometheus-nats-exporter`, `mirror/redis`, `mirror/grafana/alloy`.
 
 **Verificar:** desde una sesión sin login, `docker pull` de una imagen por su tag.
 

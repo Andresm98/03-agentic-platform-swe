@@ -46,7 +46,12 @@ jobs:
             image_ref="${source%@*}"
             destination="${MIRROR_PREFIX}/${target}"
             echo "::group::${image_ref} -> ${destination}"
-            crane copy "${image_ref%:*}@${expected}" "${destination}"
+            # GHCR deniega a veces un manifiesto mientras crea un paquete nuevo; al reintentar, entra.
+            for attempt in 1 2 3 4 5; do
+              crane copy "${image_ref%:*}@${expected}" "${destination}" && break
+              [ "${attempt}" -lt 5 ] || { echo "::error::no se pudo copiar ${destination}"; exit 1; }
+              sleep $((attempt * 10))
+            done
             actual="$(crane digest "${destination}")"
             echo "digest: ${actual}"
             [ "${actual}" = "${expected}" ] || { echo "::error::digest distinto en ${destination}"; exit 1; }
