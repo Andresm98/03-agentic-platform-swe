@@ -85,7 +85,7 @@ gh variable set AWS_ROLE_ARN --env observability --body "<rol observability>"
 **Para qué:** análisis de calidad en CI. Sin este token, `main.yml` sigue adelante, pero omite el análisis.
 
 1. Entra en sonarcloud.io con GitHub e importa el repositorio.
-2. Comprueba que la organización es `andresm98` y el proyecto `Andresm98_03-agentic-platform-swe`. Si difieren, ajusta `.github/workflows/_ci.yml`.
+2. Anota la clave de la organización (aparece en la URL, `sonarcloud.io/organizations/<clave>`) y la del proyecto. Este laboratorio usa `devops-platform-challenge` y `Andresm98_03-agentic-platform-swe`. Si difieren, ajusta `.github/workflows/_ci.yml`.
 3. *Administration → Analysis Method:* desactiva **Automatic Analysis**.
 4. *My Account → Security:* genera un token.
 

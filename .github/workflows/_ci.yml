@@ -100,10 +100,9 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          # TODO(verify): projectKey y organization al crear el proyecto en SonarCloud.
           args: >-
             -Dsonar.projectKey=Andresm98_03-agentic-platform-swe
-            -Dsonar.organization=andresm98
+            -Dsonar.organization=devops-platform-challenge
             -Dsonar.sources=apps
             -Dsonar.exclusions=apps/**/tests/**,apps/.venv/**
             -Dsonar.python.coverage.reportPaths=apps/coverage-*.xml
