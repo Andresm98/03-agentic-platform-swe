@@ -23,7 +23,7 @@ Actualizado el 2026-11-08. **El laboratorio todavía no se ha desplegado en AWS.
 | Ejercicio de ejemplo en `kind` | ✅ Probado | Rollout correcto con Pod Security `restricted` |
 | Pipeline `main` en GitHub Actions | ✅ Probado | CI, escaneo IaC, 6 imágenes y promoción GitOps |
 | Capa persistente de AWS | ✅ Desplegada | Terraform sin diferencias |
-| Mirror de imágenes de plataforma | ⚠️ Incompleto | Falló al copiar `nats`; pendiente de relanzar |
+| Mirror de imágenes de plataforma | ✅ Probado | 6 imágenes copiadas con su digest y descargables sin login |
 | Cluster local en k3d y pruebas k6 | ⏳ Sin probar | Los escenarios de demo aún no se han ejecutado |
 | `lab.yml up`: EC2, K3s y Argo CD | ⏳ Sin probar | |
 | Balanceo por NLB y autoscaling de nodos | ⏳ Sin probar | Exige ver un EC2 real unirse al cluster |

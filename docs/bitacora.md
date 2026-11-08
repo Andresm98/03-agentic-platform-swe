@@ -18,16 +18,18 @@ Registro de lo ejecutado durante el despliegue del laboratorio, en orden. Solo i
 | 8 | LangSmith | Completado; la clave se valida con las primeras trazas |
 | 9 | GitHub App de Argo CD | Completado; se valida con el primer despliegue |
 | 10 | Secretos en AWS | Completado |
-| 11 | Mirror de imágenes | Pendiente |
+| 11 | Mirror de imágenes | Completado |
+| 12 | Dashboards de Grafana | Completado |
+| 13 | Primer despliegue (`lab.yml up`) | Pendiente |
 
 | Área | Situación actual |
 |---|---|
 | Laboratorio en AWS | Sin desplegar: 0 instancias, 0 balanceadores |
 | Parámetros SSM | 12, todos `SecureString` |
 | Capa persistente | Creada y sin diferencias con Terraform |
-| `origin/main` | `8ac56bc`, con los 6 servicios promovidos correctamente |
-| Imágenes de las apps | 6 publicadas con el tag `2a1d194...`; el acceso sin login se comprobó en un tag anterior |
-| Imágenes mirror | `traefik` disponible; `nats` incompleta (incidencia 2); el resto, sin copiar |
+| `origin/main` | `730996a`, con los 6 servicios promovidos correctamente |
+| Imágenes de las apps | 6 publicadas con el tag `0e98f4f...` y descargables sin login |
+| Imágenes mirror | 6 copiadas con su digest verificado y descargables sin login |
 | Variables de GitHub | 5 de repositorio y `AWS_ROLE_ARN` en cada environment |
 | Secretos de GitHub | `SONAR_TOKEN` (repositorio) y `GRAFANA_AUTH` (`observability`) |
 | Environments de GitHub | `lab` (con aprobador), `lab-reaper` y `observability`, limitados a `main` |
@@ -254,6 +256,12 @@ Cargados con `infra/scripts/seed-secrets.sh`, con las contraseñas internas gene
 
 **Sin comprobar:** que cada token sea válido en su servicio. Se confirma cuando el cluster los use.
 
+### Paso 12: dashboards de Grafana
+
+`observability.yml` terminó bien con la service account en rol Admin: carpeta *Agentic Platform*, 6 dashboards y datasource `agentic-cloudwatch`. El token `GRAFANA_AUTH` queda validado.
+
+**Sin comprobar:** que el datasource consulte CloudWatch, porque el rol de AWS se crea con el despliegue. Los dashboards estarán vacíos hasta que el cluster envíe datos.
+
 ### Incidencias
 
 **1. La promoción GitOps corrompió los valores (corregida).** `_gitops-promote.yml` ejecutaba un solo `yq -i` con seis archivos, y `yq` fusiona todos en el primero.
@@ -270,13 +278,22 @@ Cargados con `infra/scripts/seed-secrets.sh`, con las contraseñas internas gene
 PUT .../mirror/nats/manifests/sha256:d7f535b0...: DENIED: requested access to the resource is denied
 ```
 
-Al relanzarlo, `nats` y `nats-server-config-reloader` entraron, y el mismo error apareció en el siguiente paquete nuevo, `prometheus-nats-exporter`, también tras subir su primer manifiesto. El patrón apunta a un fallo intermitente de GHCR al crear un paquete nuevo, que se resuelve al reintentar. Se añadieron hasta 5 reintentos por imagen en `mirror-images.yml`; falta confirmarlo con una ejecución completa.
+Al relanzarlo, `nats` y `nats-server-config-reloader` entraron, y el mismo error apareció en el siguiente paquete nuevo, `prometheus-nats-exporter`, también tras subir su primer manifiesto. El patrón apunta a un fallo intermitente de GHCR al crear un paquete nuevo, que se resuelve al reintentar. Se añadieron hasta 5 reintentos por imagen en `mirror-images.yml`. La ejecución de `0e98f4f` terminó bien, con las 6 imágenes y sus digests correctos. No hubo ningún `DENIED`, así que los reintentos reales aún no se han necesitado.
 
 **3. PR de Dependabot.** Los PR #1 a #6 proponían subir la imagen de build de Python de `3.11` a `3.15`. Se cerraron porque la imagen final distroless usa Python 3.11 y ambas versiones tienen que coincidir. Los PR #7 (`checkov-action`) y #8 (`hatchling`) pasan CI y siguen abiertos. No se fusionan antes de la defensa, para no cambiar versiones ya probadas.
 
 **4. Validación demasiado estricta del External ID (corregida).** El módulo `observability-aws` exigía al menos 8 caracteres y el External ID real de Grafana Cloud tiene 7, lo que habría hecho fallar `terraform plan` en `lab.yml up`. Ahora exige 2, el mínimo de AWS. `terraform validate` de `envs/lab` pasa con el cambio.
 
 **5. Modelo no disponible en OpenAI (corregida).** El proyecto de OpenAI no ofrece `gpt-4.1-nano`, que estaba en la lista del gateway. Se sustituyó por `gpt-4.1-mini`, con su precio estándar real: 0,40 USD de entrada y 1,60 USD de salida por millón de tokens. Los cuatro agentes usan `gpt-4o-mini`, así que su comportamiento no cambia.
+
+**6. GitHub no podía asumir los roles de AWS (corregida).** `observability.yml` falló con `Not authorized to perform sts:AssumeRoleWithWebIdentity`. Era el primer uso real de OIDC, y `lab.yml` habría fallado igual.
+
+- **Causa:** el repositorio emite el `sub` en formato inmutable, `repo:Andresm98@41342993/03-agentic-platform-swe@1449959239:environment:<nombre>`, y las trust policies esperaban el formato antiguo, `repo:Andresm98/03-agentic-platform-swe:environment:<nombre>`.
+- **Corrección:** variable `github_oidc_subject_prefix` en `infra/terraform/bootstrap`.
+- **Comprobado:** `terraform plan` solo cambia la trust policy de los 3 roles, sin crear ni destruir nada.
+- **Confirmado:** aplicado con `bootstrap.sh`. Los 3 roles tienen el nuevo `sub` y `observability.yml` ya entra en AWS y completa `terraform init` y `plan`.
+
+**7. La service account de Grafana no tenía permisos suficientes.** `terraform apply` falló con 403, pidiendo `folders:read` y `datasources:create`. La guía indicaba el rol **Editor**, que no basta para crear datasources; se corrigió a **Admin**.
 
 ### Correcciones en la guía
 

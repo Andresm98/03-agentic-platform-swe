@@ -38,7 +38,7 @@ sudo cat /var/log/cloud-init-output.log | tail -100
 | `terraform plan` quiere cambiar `desired_capacity` | Falta `ignore_changes = [desired_capacity]` en el ASG | Añadirlo; el dueño en ejecución es el CA (ADR-0001 §1) |
 | `plan` quiere recrear el control plane | Cambió la AMI o el user-data | Fijar la AMI en una variable e `ignore_changes = [ami, user_data]`. Recrear el CP **pierde el datastore** (single control plane, sin HA) |
 | Instancias no aparecen `Online` en SSM Fleet Manager | Sin egress 443, o falta la política SSM core en el rol | Revisar SG de egress y el instance profile |
-| `lab.yml` no puede asumir el rol (OIDC) | El `sub` no coincide con `repo:Andresm98/03-agentic-platform-swe:environment:lab` | Revisar la trust policy y que el job use `environment: lab` |
+| `lab.yml` no puede asumir el rol (OIDC) | El `sub` no coincide con el que emite GitHub. El repositorio usa el formato inmutable: `repo:Andresm98@41342993/03-agentic-platform-swe@1449959239:environment:lab` | Comparar `gh api repos/Andresm98/03-agentic-platform-swe/actions/oidc/customization/sub` con la trust policy, y comprobar que el job use `environment: lab` |
 | `iam:CreateRole` denegado a Terraform | Falta la permissions boundary o el prefijo `agentic-*` | Crear el rol con la boundary y el prefijo (ADR-0002 §2) |
 | Más de 3 EC2 o instance refresh inesperado | Instance refresh o `AZRebalance` activos | `AZRebalance` suspendido y sin instance refresh (plan §1.1 #9) |
 

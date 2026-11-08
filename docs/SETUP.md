@@ -105,7 +105,7 @@ gh secret set SONAR_TOKEN
    - **Prometheus:** URL completa de remote write (termina en `/api/prom/push`).
    - **Loki:** URL completa (termina en `/loki/api/v1/push`).
    - **OpenTelemetry:** endpoint OTLP (`https://otlp-gateway-<zona>.grafana.net/otlp`).
-4. *Administration → Service accounts:* crea una con rol **Editor** y un token.
+4. *Administration → Service accounts:* crea una con rol **Admin** y un token. Con **Editor** no puede crear el datasource y el workflow falla con 403.
 5. *Connections → Add new connection:* busca `CloudWatch`, ábrelo y pulsa **Add new data source**. En *Settings*, elige el proveedor de autenticación **Grafana Assume Role** y anota el **ID de cuenta AWS de Grafana** y el **external ID** del cuadro de instrucciones. Son datos propios de tu instancia. Después **borra ese datasource temporal**: el definitivo lo crea `observability.yml`.
 
 ```bash

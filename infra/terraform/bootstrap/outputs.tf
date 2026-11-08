@@ -15,5 +15,5 @@ output "github_role_arns" {
 
 output "oidc_subjects" {
   description = "sub exactos aceptados por cada rol."
-  value       = { for k, env in local.github_roles : k => "repo:${var.github_repository}:environment:${env}" }
+  value       = { for k, env in local.github_roles : k => "${var.github_oidc_subject_prefix}:environment:${env}" }
 }

@@ -50,7 +50,7 @@ role/agentic-worker-node (workers): SSM core, ssm:GetParameter(join token) — n
   - `SetDesiredCapacity` y `TerminateInstanceInAutoScalingGroup` solo sobre recursos con `k8s.io/cluster-autoscaler/agentic-platform=owned`;
   - los `Describe*` van sobre `*`, porque AWS no permite restringirlos.
 - **GitHub Actions → AWS (OIDC, sin access keys):**
-  - `role/agentic-github-actions` confía en `token.actions.githubusercontent.com` **solo** con `sub = repo:<owner>/<repo>:environment:lab`. Ninguna rama, PR ni fork puede asumirlo.
+  - `role/agentic-github-actions` confía en `token.actions.githubusercontent.com` **solo** con `sub = repo:<owner>@<owner_id>/<repo>@<repo_id>:environment:lab` (formato inmutable de GitHub). Ninguna rama, PR ni fork puede asumirlo.
   - El environment `lab` exige **tu aprobación** y solo lo usa `lab.yml`. `lab-reaper.yml` usa el environment `lab-reaper`, sin revisores, con un rol propio orientado a destruir. Los workflows de PR usan `pull_request` (nunca `pull_request_target`) y no tienen acceso al environment.
   - **Permisos:** los que Terraform necesita para EC2, ELBv2, Auto Scaling, SSM y el estado S3. IAM solo sobre roles e instance profiles con prefijo `agentic-*`, y obligando a una **permissions boundary**, para que no pueda crear un rol más poderoso que ella.
   - **Duración:** sesión de 1 h.

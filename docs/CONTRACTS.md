@@ -18,7 +18,7 @@ Diseño: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) · [ADR-0001](adrs/000
 |---|---|
 | Proyecto / prefijo AWS | `agentic-platform` / recursos IAM `agentic-*` |
 | Región | `us-east-1` |
-| Repo GitHub (**confirmado**) | `https://github.com/Andresm98/03-agentic-platform-swe` (rama `main`); OIDC `sub` = `repo:Andresm98/03-agentic-platform-swe:environment:lab` |
+| Repo GitHub (**confirmado**) | `https://github.com/Andresm98/03-agentic-platform-swe` (rama `main`); OIDC `sub` = `repo:Andresm98@41342993/03-agentic-platform-swe@1449959239:environment:lab` |
 | Registry | `ghcr.io/andresm98/agentic-platform/<servicio>:<git-sha>` |
 | Mirror de plataforma | `ghcr.io/andresm98/agentic-platform/mirror/<imagen>@sha256:<digest>` |
 | Servicios de la flota (`app-id` Dapr = nombre) | `orchestrator`, `researcher`, `analyst`, `executor`, `llm-gateway`, `fake-llm` |

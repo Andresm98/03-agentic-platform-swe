@@ -31,6 +31,16 @@ variable "github_repository" {
   default     = "Andresm98/03-agentic-platform-swe"
 }
 
+variable "github_oidc_subject_prefix" {
+  description = <<-EOT
+    Prefijo del sub OIDC que emite GitHub, antes de ":environment:<nombre>". Este repositorio usa el formato
+    inmutable, con los ID del propietario y del repositorio. Se consulta con:
+    gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix
+  EOT
+  type        = string
+  default     = "repo:Andresm98@41342993/03-agentic-platform-swe@1449959239"
+}
+
 variable "github_lab_environment" {
   description = "Environment de GitHub (con aprobación) que puede asumir role/agentic-github-actions."
   type        = string

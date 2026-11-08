@@ -328,7 +328,7 @@ data "aws_iam_policy_document" "github_trust" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${var.github_repository}:environment:${each.value}"]
+      values   = ["${var.github_oidc_subject_prefix}:environment:${each.value}"]
     }
   }
 }
