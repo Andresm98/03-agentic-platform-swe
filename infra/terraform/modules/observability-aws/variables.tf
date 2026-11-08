@@ -29,7 +29,7 @@ variable "external_id" {
   type        = string
 
   validation {
-    condition     = length(var.external_id) >= 8
+    condition     = length(var.external_id) >= 2 # mínimo de sts:ExternalId; el de Grafana Cloud tiene 7 dígitos
     error_message = "external_id demasiado corto."
   }
 }

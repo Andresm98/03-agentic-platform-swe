@@ -7,11 +7,11 @@ from typing import Any
 
 from agentlib.bootstrap.settings import BaseSettings, env_bool, env_float, env_int, env_json, env_str
 
-# USD por 1M de tokens. TODO(verify): confirmar en https://openai.com/api/pricing antes de la demo
-# live; el gateway convierte tokens en USD con estos valores.
+# USD por 1M de tokens, comprobado el 2026-11-08 en developers.openai.com/api/docs/pricing.
+# El gateway convierte tokens en USD con estos valores.
 DEFAULT_MODELS: dict[str, Any] = {
     "gpt-4o-mini": {"input_usd_per_1m": 0.15, "output_usd_per_1m": 0.60},
-    "gpt-4.1-nano": {"input_usd_per_1m": 0.10, "output_usd_per_1m": 0.40},
+    "gpt-4.1-mini": {"input_usd_per_1m": 0.40, "output_usd_per_1m": 1.60},
 }
 DEFAULT_AGENT_MAX_TOKENS: dict[str, Any] = {"orchestrator": 300, "default": 200}
 

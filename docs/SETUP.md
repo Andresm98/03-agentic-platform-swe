@@ -106,7 +106,7 @@ gh secret set SONAR_TOKEN
    - **Loki:** URL completa (termina en `/loki/api/v1/push`).
    - **OpenTelemetry:** endpoint OTLP (`https://otlp-gateway-<zona>.grafana.net/otlp`).
 4. *Administration → Service accounts:* crea una con rol **Editor** y un token.
-5. *Connections → CloudWatch:* anota el **ID de cuenta AWS de Grafana** y el **external ID**. No crees el datasource: lo hace `observability.yml`.
+5. *Connections → Add new connection:* busca `CloudWatch`, ábrelo y pulsa **Add new data source**. En *Settings*, elige el proveedor de autenticación **Grafana Assume Role** y anota el **ID de cuenta AWS de Grafana** y el **external ID** del cuadro de instrucciones. Son datos propios de tu instancia. Después **borra ese datasource temporal**: el definitivo lo crea `observability.yml`.
 
 ```bash
 gh variable set GRAFANA_CLOUD_AWS_ACCOUNT_ID --body "<id-de-cuenta-de-grafana>"
@@ -122,7 +122,7 @@ gh secret set GRAFANA_AUTH --env observability    # token de service account
 
 1. Crea un proyecto `agentic-platform-lab`.
 2. Fija un **límite de gasto de 5 USD** en el proyecto. Si tu cuenta no lo permite por proyecto, hazlo en la organización.
-3. Restringe los modelos a `gpt-4o-mini` y `gpt-4.1-nano`, los únicos que admite el gateway.
+3. En *Limits → Allow or block models*, elige **Allow only selected models** y activa solo `gpt-4o-mini` y `gpt-4.1-mini`, los únicos que admite el gateway. Usa esos nombres exactos, no las variantes con fecha.
 4. Comprueba los precios y actualiza `LLM_ALLOWED_MODELS` en `gitops/apps/llm-gateway/values.yaml` si cambiaron. El modelo de cada agente es `LLM_MODEL` en `gitops/apps/agents/<agente>/values.yaml`.
 5. Crea una API key del proyecto: `OPENAI_API_KEY`.
 

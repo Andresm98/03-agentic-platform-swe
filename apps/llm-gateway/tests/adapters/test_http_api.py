@@ -50,7 +50,7 @@ def test_chat_completion_contract_and_metrics(monkeypatch: pytest.MonkeyPatch) -
         metrics = c.get("/metrics").text
         assert 'llm_tokens_total{agent="researcher",direction="input",mode="simulated"}' in metrics
         assert 'llm_tokens_total{agent="researcher",direction="input",mode="live"}' not in metrics
-        assert c.get("/v1/models").json()["data"][0]["id"] in {"gpt-4o-mini", "gpt-4.1-nano"}
+        assert c.get("/v1/models").json()["data"][0]["id"] in {"gpt-4o-mini", "gpt-4.1-mini"}
         assert c.get("/budget").json()["remaining_usd"] == 3.0
         assert c.post("/v1/chat/completions", content=b"{bad").status_code == 400
 

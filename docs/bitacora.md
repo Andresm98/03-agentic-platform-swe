@@ -12,17 +12,19 @@ Registro de lo ejecutado durante el despliegue del laboratorio, en orden. Solo i
 | 2 | Primer commit y push | Completado |
 | 3 | Capa persistente de AWS | Completado |
 | 4 | Ajustes de GitHub | Completado |
-| 5 | SonarCloud | Falta el primer análisis real desde CI |
+| 5 | SonarCloud | Completado |
+| 6 | Grafana Cloud | Completado; el token se valida al ejecutar `observability.yml` |
+| 7 | OpenAI | Pendiente |
 
 | Área | Situación actual |
 |---|---|
 | Laboratorio en AWS | Sin desplegar: 0 instancias, 0 balanceadores, 0 parámetros SSM |
 | Capa persistente | Creada y sin diferencias con Terraform |
-| `origin/main` | `a3e5765`, con los 6 servicios promovidos correctamente |
-| Imágenes de las apps | 6 publicadas y descargables sin login, con tag `74fe3c0...` |
+| `origin/main` | `7191a77`, con los 6 servicios promovidos correctamente |
+| Imágenes de las apps | 6 publicadas con el tag `8f8e295...`; el acceso sin login se comprobó en el tag anterior |
 | Imágenes mirror | `traefik` disponible; `nats` incompleta (incidencia 2); el resto, sin copiar |
 | Variables de GitHub | 5 de repositorio y `AWS_ROLE_ARN` en cada environment |
-| Secretos de GitHub | `SONAR_TOKEN` |
+| Secretos de GitHub | `SONAR_TOKEN` (repositorio) y `GRAFANA_AUTH` (`observability`) |
 | Environments de GitHub | `lab` (con aprobador), `lab-reaper` y `observability`, limitados a `main` |
 
 ## 2026-11-08
@@ -137,11 +139,11 @@ El proyecto se importó en una organización ya existente, no en una nueva.
 - El secreto `SONAR_TOKEN` existe en el repositorio.
 - `_ci.yml` tenía la organización `andresm98`; se cambió a `devops-platform-challenge`, y se actualizó [SETUP.md](SETUP.md).
 
-**Sin comprobar:**
-- Que Automatic Analysis esté desactivado: la API exige autenticación. El análisis de las 19:43 UTC no viene de CI y es anterior a la creación del token.
-- Que el token tenga acceso a esta organización. Ambos puntos se confirman con el primer análisis desde CI.
+- El commit `8f8e295` pasó `main` completo y el bot lo promovió en `7191a77`.
+- Primer análisis desde CI a las 19:50 UTC, sobre la revisión `8f8e295`. Esto confirma que el token sirve y que Automatic Analysis no interfiere.
+- Quality gate **OK**, con cobertura del 91,2 %, 0 bugs, 8 vulnerabilidades y 44 code smells en 7172 líneas.
 
-**Revisión de las 26 incidencias de seguridad** de ese análisis automático, que cubrió todo el repositorio:
+**Revisión de las 26 incidencias de seguridad** del análisis automático previo (19:43 UTC), que cubrió todo el repositorio:
 
 | Incidencias | Hallazgo | Decisión |
 |---|---|---|
@@ -154,6 +156,22 @@ El proyecto se importó en una organización ya existente, no en una nueva.
 | 1 | Sin límite de almacenamiento en el contenedor | Sin cambios antes de la defensa |
 
 Desde CI solo se analiza `apps/` (`sonar.sources=apps`), así que las incidencias de infraestructura dejarán de aparecer aunque sigan existiendo.
+
+### Paso 6: Grafana Cloud
+
+Stack `andresm98.grafana.net` en plan gratuito, región `prod-eu-west-6`. Política de acceso `agentic-alloy` con `metrics:write`, `logs:write` y `traces:write`.
+
+**Comprobado:**
+- La instancia responde en `/api/health`.
+- Variables `GRAFANA_CLOUD_AWS_ACCOUNT_ID` (`008923505280`) y `GRAFANA_CLOUDWATCH_EXTERNAL_ID` en el repositorio.
+- Variables `GRAFANA_URL` y `GRAFANA_CLOUDWATCH_ROLE_ARN`, y secreto `GRAFANA_AUTH`, en el environment `observability`.
+
+**Aprendido:** Grafana solo muestra la cuenta y el External ID al crear un datasource CloudWatch con el proveedor **Grafana Assume Role**. Se creó uno temporal para leerlos. El error `AccessDenied` de *Save & test* es normal mientras no exista el rol. La guía se corrigió.
+
+**Sin comprobar:**
+- La validez de `GRAFANA_AUTH`, hasta ejecutar `observability.yml`.
+- `GRAFANA_CLOUD_TOKEN` y las URL de envío, hasta que lleguen datos desde el cluster.
+- El valor `authType = "grafana_assume_role"` para aprovisionamiento, que la documentación oficial no confirma.
 
 ### Incidencias
 
@@ -174,6 +192,10 @@ PUT .../mirror/nats/manifests/sha256:d7f535b0...: DENIED: requested access to th
 Causa sin confirmar. Como el primer manifiesto del mismo paquete entró con el mismo token, la hipótesis es un fallo transitorio de GHCR al crear un paquete nuevo. Se comprueba al relanzar el workflow en el paso de imágenes.
 
 **3. PR de Dependabot.** Los PR #1 a #6 proponían subir la imagen de build de Python de `3.11` a `3.15`. Se cerraron porque la imagen final distroless usa Python 3.11 y ambas versiones tienen que coincidir. Los PR #7 (`checkov-action`) y #8 (`hatchling`) pasan CI y siguen abiertos. No se fusionan antes de la defensa, para no cambiar versiones ya probadas.
+
+**4. Validación demasiado estricta del External ID (corregida en local).** El módulo `observability-aws` exigía al menos 8 caracteres y el External ID real de Grafana Cloud tiene 7, lo que habría hecho fallar `terraform plan` en `lab.yml up`. Ahora exige 2, el mínimo de AWS. `terraform validate` de `envs/lab` pasa con el cambio.
+
+**5. Modelo no disponible en OpenAI (corregida en local).** El proyecto de OpenAI no ofrece `gpt-4.1-nano`, que estaba en la lista del gateway. Se sustituyó por `gpt-4.1-mini`, con su precio estándar real: 0,40 USD de entrada y 1,60 USD de salida por millón de tokens. Los cuatro agentes usan `gpt-4o-mini`, así que su comportamiento no cambia.
 
 ### Correcciones en la guía
 

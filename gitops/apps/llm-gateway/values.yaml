@@ -15,8 +15,8 @@ env:
   TASK_MAX_LLM_CALLS: "6"
   LLM_MAX_INPUT_TOKENS: "2000"
   LLM_AGENT_MAX_TOKENS: '{"orchestrator": 300, "default": 200}'
-  # TODO(verify): precios en https://openai.com/api/pricing antes de la demo live.
-  LLM_ALLOWED_MODELS: '{"gpt-4o-mini": {"input_usd_per_1m": 0.15, "output_usd_per_1m": 0.60}, "gpt-4.1-nano": {"input_usd_per_1m": 0.10, "output_usd_per_1m": 0.40}}'
+  # Precios estándar comprobados el 2026-11-08 en developers.openai.com/api/docs/pricing.
+  LLM_ALLOWED_MODELS: '{"gpt-4o-mini": {"input_usd_per_1m": 0.15, "output_usd_per_1m": 0.60}, "gpt-4.1-mini": {"input_usd_per_1m": 0.40, "output_usd_per_1m": 1.60}}'
   LANGSMITH_ENABLED: "true"
   LANGSMITH_PROJECT: agentic-platform
   LANGSMITH_SIMULATED_SAMPLE_RATE: "0.01"
