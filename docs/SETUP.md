@@ -164,7 +164,8 @@ DEMO_TOKEN=          # genera con: openssl rand -hex 32. Guárdalo: lo usarás e
 ```
 
 ```bash
-set -a; source ~/agentic-secrets.env; set +a
+# tr quita los finales de línea de Windows, que se colarían dentro de los valores
+set -a; source <(tr -d '\r' < ~/agentic-secrets.env); set +a
 DRY_RUN=1 GENERATE_INTERNAL=1 bash infra/scripts/seed-secrets.sh    # no escribe nada
 GENERATE_INTERNAL=1 bash infra/scripts/seed-secrets.sh
 rm ~/agentic-secrets.env

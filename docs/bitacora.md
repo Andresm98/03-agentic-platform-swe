@@ -14,18 +14,77 @@ Registro de lo ejecutado durante el despliegue del laboratorio, en orden. Solo i
 | 4 | Ajustes de GitHub | Completado |
 | 5 | SonarCloud | Completado |
 | 6 | Grafana Cloud | Completado; el token se valida al ejecutar `observability.yml` |
-| 7 | OpenAI | Pendiente |
+| 7 | OpenAI | Completado; la clave se valida en la demo `live` |
+| 8 | LangSmith | Completado; la clave se valida con las primeras trazas |
+| 9 | GitHub App de Argo CD | Completado; se valida con el primer despliegue |
+| 10 | Secretos en AWS | Completado |
+| 11 | Mirror de imágenes | Pendiente |
 
 | Área | Situación actual |
 |---|---|
-| Laboratorio en AWS | Sin desplegar: 0 instancias, 0 balanceadores, 0 parámetros SSM |
+| Laboratorio en AWS | Sin desplegar: 0 instancias, 0 balanceadores |
+| Parámetros SSM | 12, todos `SecureString` |
 | Capa persistente | Creada y sin diferencias con Terraform |
-| `origin/main` | `7191a77`, con los 6 servicios promovidos correctamente |
-| Imágenes de las apps | 6 publicadas con el tag `8f8e295...`; el acceso sin login se comprobó en el tag anterior |
+| `origin/main` | `8ac56bc`, con los 6 servicios promovidos correctamente |
+| Imágenes de las apps | 6 publicadas con el tag `2a1d194...`; el acceso sin login se comprobó en un tag anterior |
 | Imágenes mirror | `traefik` disponible; `nats` incompleta (incidencia 2); el resto, sin copiar |
 | Variables de GitHub | 5 de repositorio y `AWS_ROLE_ARN` en cada environment |
 | Secretos de GitHub | `SONAR_TOKEN` (repositorio) y `GRAFANA_AUTH` (`observability`) |
 | Environments de GitHub | `lab` (con aprobador), `lab-reaper` y `observability`, limitados a `main` |
+
+## Dónde está cada cosa
+
+Accesos para consultar la información. Aquí no se guarda ningún valor secreto.
+
+### Consolas
+
+| Servicio | Acceso | Qué se ve ahí |
+|---|---|---|
+| AWS (cuenta `972588015487`, región `us-east-1`) | [SSM Parameter Store](https://us-east-1.console.aws.amazon.com/systems-manager/parameters/?region=us-east-1) | Los 12 secretos del cluster; filtra por `/agentic-platform/k8s` |
+| | [Bucket de estado](https://s3.console.aws.amazon.com/s3/buckets/agentic-platform-tfstate-972588015487) | Estado de Terraform del laboratorio |
+| | [Budgets](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) | Presupuesto `agentic-platform-monthly` |
+| | [Cost Explorer](https://us-east-1.console.aws.amazon.com/costmanagement/home#/cost-explorer) | Gasto real |
+| | [Roles IAM](https://us-east-1.console.aws.amazon.com/iam/home#/roles) | Roles `agentic-github-*` |
+| GitHub | [Variables](https://github.com/Andresm98/03-agentic-platform-swe/settings/variables/actions) y [Secretos](https://github.com/Andresm98/03-agentic-platform-swe/settings/secrets/actions) | Configuración de los workflows |
+| | [Environments](https://github.com/Andresm98/03-agentic-platform-swe/settings/environments) | `lab`, `lab-reaper` y `observability` |
+| | [Actions](https://github.com/Andresm98/03-agentic-platform-swe/actions) | Ejecuciones y aprobaciones |
+| | [Paquetes](https://github.com/Andresm98?tab=packages&repo_name=03-agentic-platform-swe) | Imágenes en GHCR |
+| | [GitHub App](https://github.com/settings/apps/agentic-platform-argocd-andresm98) y [su instalación](https://github.com/settings/installations) | App ID, Installation ID y permisos |
+| SonarCloud | [Proyecto](https://sonarcloud.io/project/overview?id=Andresm98_03-agentic-platform-swe) | Calidad del código |
+| | [Organización](https://sonarcloud.io/organizations/devops-platform-challenge) | `devops-platform-challenge` |
+| | [Tokens](https://sonarcloud.io/account/security) | Token `SONAR_TOKEN` |
+| Grafana Cloud | [Portal](https://grafana.com/orgs/andresm98) | Stack; en *Details*, URLs y usuarios de Prometheus, Loki y OTLP |
+| | [Instancia](https://andresm98.grafana.net) | Dashboards, carpeta *Agentic Platform* |
+| | [Service accounts](https://andresm98.grafana.net/org/serviceaccounts) | Token de `GRAFANA_AUTH` |
+| | *Instancia → Administration → Users and access → Cloud access policies* | Política y token `agentic-alloy` |
+| OpenAI | [Plataforma](https://platform.openai.com), proyecto `agentic-platform-lab` | *Settings → Limits*: gasto y modelos; *API keys*: clave |
+| | [Facturación](https://platform.openai.com/settings/organization/billing/overview) | Saldo y recarga automática |
+| LangSmith | [Plataforma](https://smith.langchain.com) | *Settings → API Keys*: clave `agentic-lab-gateway`; proyecto `agentic-platform` con las trazas |
+
+### Dónde vive cada secreto
+
+GitHub y los proveedores no vuelven a mostrar un token ya creado. Si se pierde, se crea otro.
+
+| Secreto | Dónde está guardado | ¿Se puede leer de nuevo? |
+|---|---|---|
+| Clave de OpenAI | SSM `/agentic-platform/k8s/openai-api-key` | Sí, en SSM |
+| Clave de LangSmith | SSM `/agentic-platform/k8s/langsmith-api-key` | Sí, en SSM |
+| Token de demo (`X-Demo-Token`) | SSM `/agentic-platform/k8s/demo-token` | Sí, en SSM |
+| URLs, usuarios y token de envío a Grafana | SSM `/agentic-platform/k8s/grafana-cloud` (JSON) | Sí, en SSM |
+| App ID, Installation ID y clave `.pem` de la GitHub App | SSM `/agentic-platform/k8s/github-app` (JSON) | Sí, en SSM |
+| Contraseña de Redis | SSM `/agentic-platform/k8s/redis-password` (generada) | Sí, en SSM |
+| Contraseñas de NATS, una por servicio | SSM `/agentic-platform/k8s/nats/<servicio>-password` (generadas) | Sí, en SSM |
+| `SONAR_TOKEN` | Secreto del repositorio | No: se crea otro en SonarCloud |
+| `GRAFANA_AUTH` | Secreto del environment `observability` | No: se crea otro en Service accounts |
+| Estado de la capa persistente | `infra/terraform/bootstrap/terraform.tfstate`, local e ignorado por Git | Sí, conviene tener copia |
+
+Para ver un secreto de SSM sin entrar en la consola, en **Git Bash** (cambia el nombre final):
+
+```bash
+MSYS_NO_PATHCONV=1 aws ssm get-parameter --name /agentic-platform/k8s/demo-token --with-decryption --query Parameter.Value --output text
+```
+
+Se puede usar también el botón *Show decrypted value* de la consola. No pegues el resultado en ningún chat.
 
 ## 2026-11-08
 
@@ -173,6 +232,28 @@ Stack `andresm98.grafana.net` en plan gratuito, región `prod-eu-west-6`. Polít
 - `GRAFANA_CLOUD_TOKEN` y las URL de envío, hasta que lleguen datos desde el cluster.
 - El valor `authType = "grafana_assume_role"` para aprovisionamiento, que la documentación oficial no confirma.
 
+### Paso 7: OpenAI
+
+Proyecto dedicado, con solo `gpt-4o-mini` y `gpt-4.1-mini` permitidos y una API key propia. El gateway se ajustó a esos dos modelos en el commit `2a1d194` (incidencia 5).
+
+La selección de modelos se comprobó con capturas de pantalla. El límite de gasto, la recarga automática desactivada y la clave no se pueden verificar desde aquí; los confirmó el operador.
+
+### Paso 8: LangSmith
+
+Se reutilizó una cuenta existente y se creó una clave específica, `agentic-lab-gateway`, en `Workspace 1`. No se puede verificar desde aquí: se confirmará cuando aparezca el proyecto `agentic-platform` con las primeras trazas. Sigue sin confirmar el nombre de la cabecera `Langsmith-Project`.
+
+### Paso 9: GitHub App de Argo CD
+
+App privada, creada e instalada por el operador. Una App privada no es visible en la API pública y la sesión de `gh` no puede listar instalaciones, así que sus permisos no se pudieron comprobar desde aquí. Se confirmará cuando Argo CD publique el primer estado en GitHub Deployments. La clave `.pem` no está en el repositorio.
+
+### Paso 10: secretos en AWS
+
+Cargados con `infra/scripts/seed-secrets.sh`, con las contraseñas internas generadas. El archivo de secretos se revisó solo en su forma, sin mostrar valores, y se borró al terminar.
+
+**Comprobado por metadatos, sin descifrar:** existen los 12 parámetros, todos `SecureString`, en la versión 1 y con etiquetas.
+
+**Sin comprobar:** que cada token sea válido en su servicio. Se confirma cuando el cluster los use.
+
 ### Incidencias
 
 **1. La promoción GitOps corrompió los valores (corregida).** `_gitops-promote.yml` ejecutaba un solo `yq -i` con seis archivos, y `yq` fusiona todos en el primero.
@@ -193,9 +274,9 @@ Causa sin confirmar. Como el primer manifiesto del mismo paquete entró con el m
 
 **3. PR de Dependabot.** Los PR #1 a #6 proponían subir la imagen de build de Python de `3.11` a `3.15`. Se cerraron porque la imagen final distroless usa Python 3.11 y ambas versiones tienen que coincidir. Los PR #7 (`checkov-action`) y #8 (`hatchling`) pasan CI y siguen abiertos. No se fusionan antes de la defensa, para no cambiar versiones ya probadas.
 
-**4. Validación demasiado estricta del External ID (corregida en local).** El módulo `observability-aws` exigía al menos 8 caracteres y el External ID real de Grafana Cloud tiene 7, lo que habría hecho fallar `terraform plan` en `lab.yml up`. Ahora exige 2, el mínimo de AWS. `terraform validate` de `envs/lab` pasa con el cambio.
+**4. Validación demasiado estricta del External ID (corregida).** El módulo `observability-aws` exigía al menos 8 caracteres y el External ID real de Grafana Cloud tiene 7, lo que habría hecho fallar `terraform plan` en `lab.yml up`. Ahora exige 2, el mínimo de AWS. `terraform validate` de `envs/lab` pasa con el cambio.
 
-**5. Modelo no disponible en OpenAI (corregida en local).** El proyecto de OpenAI no ofrece `gpt-4.1-nano`, que estaba en la lista del gateway. Se sustituyó por `gpt-4.1-mini`, con su precio estándar real: 0,40 USD de entrada y 1,60 USD de salida por millón de tokens. Los cuatro agentes usan `gpt-4o-mini`, así que su comportamiento no cambia.
+**5. Modelo no disponible en OpenAI (corregida).** El proyecto de OpenAI no ofrece `gpt-4.1-nano`, que estaba en la lista del gateway. Se sustituyó por `gpt-4.1-mini`, con su precio estándar real: 0,40 USD de entrada y 1,60 USD de salida por millón de tokens. Los cuatro agentes usan `gpt-4o-mini`, así que su comportamiento no cambia.
 
 ### Correcciones en la guía
 
