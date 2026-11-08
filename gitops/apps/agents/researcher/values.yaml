@@ -1,7 +1,7 @@
 # researcher. image.tag solo lo escribe CI.
 image:
   repository: ghcr.io/andresm98/agentic-platform/researcher
-  tag: "8f8e29552cf7e67139d45eda34b05ca74b0e6f3f"
+  tag: "2a1d1949a2750c17b2415cb29be40484d52d0bfc"
 env:
   LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
   LLM_MODEL: gpt-4o-mini

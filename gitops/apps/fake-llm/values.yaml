@@ -1,7 +1,7 @@
 # fake-llm: simula una dependencia externa, por eso corre en el control plane (ADR-0002 §3).
 image:
   repository: ghcr.io/andresm98/agentic-platform/fake-llm
-  tag: "8f8e29552cf7e67139d45eda34b05ca74b0e6f3f"
+  tag: "2a1d1949a2750c17b2415cb29be40484d52d0bfc"
 replicaCount: 1
 env:
   FAKE_LATENCY_MEDIAN_MS: "300"
