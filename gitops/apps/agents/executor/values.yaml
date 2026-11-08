@@ -1,7 +1,7 @@
 # executor. image.tag solo lo escribe CI.
 image:
   repository: ghcr.io/andresm98/agentic-platform/executor
-  tag: "ac8b71f32aadaa84101ab7f5b50c923ad850a735"
+  tag: "fbacf928d985bd4dc609789649498b9cb06213a0"
 env:
   LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
   LLM_MODEL: gpt-4o-mini
