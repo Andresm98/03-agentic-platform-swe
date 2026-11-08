@@ -1,7 +1,7 @@
 # orchestrator. image.tag solo lo escribe CI.
 image:
   repository: ghcr.io/andresm98/agentic-platform/orchestrator
-  tag: "fbacf928d985bd4dc609789649498b9cb06213a0"
+  tag: "28f30ec5f9a2826fb7f4b3db33b636d156519c6c"
 env:
   LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
   LLM_MODEL: gpt-4o-mini
