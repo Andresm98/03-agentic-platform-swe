@@ -313,6 +313,12 @@ Al relanzarlo, `nats` y `nats-server-config-reloader` entraron, y el mismo error
 
 Comprobado en local: `helm template` deja 0 referencias a `remote.kubernetes.secret` y el `nodeSelector` correcto en `fake-llm`; el `sed` de la toleration da el YAML esperado; `bash -n` y `terraform validate` pasan.
 
+**10. Sidecars de Dapr en `CrashLoopBackOff`.** `orchestrator` y `executor` no arrancaban: `failed to init built-in secret store ... stat /.kube/config: no such file`.
+
+- **Causa:** el chart no monta el token de ServiceAccount, a propósito, y el almacén de secretos integrado de Dapr lo necesita al iniciar.
+- **Corrección:** anotación `dapr.io/disable-builtin-k8s-secret-store: "true"`. Mantiene los pods sin token, y las referencias `secretKeyRef` las resuelve el operador de Dapr.
+- **Falta:** confirmar en el cluster que `workflowstore` recibe su contraseña.
+
 ### Correcciones en la guía
 
 Dos afirmaciones de [SETUP.md](SETUP.md) no coincidieron con lo observado y se corrigieron:

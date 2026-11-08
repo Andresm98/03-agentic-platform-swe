@@ -30,6 +30,8 @@ spec:
         dapr.io/app-port: {{ .Values.containerPort | quote }}
         dapr.io/config: {{ .Values.dapr.config | quote }}
         dapr.io/log-as-json: "true"
+        # Sin token de ServiceAccount, el almacén integrado no arranca; los secretKeyRef los resuelve el operador.
+        dapr.io/disable-builtin-k8s-secret-store: "true"
         dapr.io/app-max-concurrency: {{ .Values.dapr.maxConcurrency | quote }}
         dapr.io/sidecar-cpu-request: {{ .Values.dapr.sidecar.cpuRequest | quote }}
         dapr.io/sidecar-memory-request: {{ .Values.dapr.sidecar.memoryRequest | quote }}
