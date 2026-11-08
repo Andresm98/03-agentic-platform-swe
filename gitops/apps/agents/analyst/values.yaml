@@ -1,7 +1,7 @@
 # analyst. image.tag solo lo escribe CI.
 image:
   repository: ghcr.io/andresm98/agentic-platform/analyst
-  tag: "54e8cf848290dee63dc37125adc409f712c5fe5c"
+  tag: "14a1fa22de35f774c844d2dbd208a7790c8ce4ab"
 env:
   LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
   LLM_MODEL: gpt-4o-mini
