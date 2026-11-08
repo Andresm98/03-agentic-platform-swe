@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Contexto de build: apps/. Multistage a distroless (ADR-0001 §3).
 # Builder en Python 3.11 porque python3-debian12 trae 3.11.2 (verificado con `docker run`).
-FROM python:3.11-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39 AS builder
+FROM python:3.15-slim-bookworm@sha256:96599df822d0e1c6bb700014a05c7f3c8cabc6e0f7ff3c4f9f69cee033b4b5d9 AS builder
 WORKDIR /build
 COPY agents/executor/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --no-compile --require-hashes --no-deps --target /install -r requirements.txt
