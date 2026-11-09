@@ -29,7 +29,7 @@ Actualizado el 2026-11-08. **El laboratorio ya funciona en AWS y atiende tareas 
 | Tarea completa por el NLB | ✅ Probado | Orquestador y 3 agentes en 23 s, con KEDA escalando desde cero |
 | Autoscaling de nodos | ✅ Probado | Bajo carga real, el ASG subió de 1 a 2, el EC2 se unió como `Ready` y el NLB tuvo 2 destinos `healthy` |
 | Telemetría en Grafana Cloud | ✅ Probado | Dashboards con datos de la arquitectura y logs por `task_id` en Loki |
-| Modelo real de OpenAI | ✅ Probado | Tarea real completada por el NLB con token de demo; sin token, o con uno falso, sigue en modo simulado |
+| Modelo real (NVIDIA, API compatible con OpenAI) | ✅ Probado | Tarea real completada por el NLB con token de demo; sin token, o con uno falso, sigue en modo simulado |
 | Trazas en LangSmith | ✅ Probado | Cada llamada real al modelo visible, con agente, tokens y latencia |
 | Flujo de ejercicios en la rama `stage` | ✅ Probado | De PR a despliegue por Argo CD, respondiendo en `/s/prueba/` |
 
@@ -67,7 +67,7 @@ flowchart TB
   orch --> redis
   orch --> gw
   gw -->|"simulado"| fake
-  gw -->|"solo con token de demo"| openai["OpenAI"]
+  gw -->|"solo con token de demo"| openai["Modelo real · NVIDIA"]
   gw -.->|"trazas LLM"| langsmith["LangSmith"]
   workers -.->|"métricas, logs y trazas"| grafana["Grafana Cloud"]
 ```
@@ -100,8 +100,8 @@ Más vistas (C4, red, secuencia de una tarea y cadena de elasticidad) en el [pla
 | Barrera | Mecanismo | Tope |
 |---|---|---|
 | Admisión | El modo real exige `X-Demo-Token`. El tráfico público siempre va a `fake-llm` | Sin token, 0 tokens reales |
-| Gateway | Reserva y concilia el gasto en NATS KV. Al agotarse, degrada a `fake-llm` | 3 USD |
-| Proveedor | Proyecto dedicado de OpenAI | 5 USD |
+| Gateway | Limita las tareas reales y reserva el gasto en NATS KV. Al agotarse, degrada a `fake-llm` | 5 tareas por minuto, 50 en total y 3 USD |
+| Proveedor | Endpoint gratuito de NVIDIA, con `nemotron-3.5-bolt-e4b` | Sin coste; sus precios en el gateway son 0 |
 
 Cada tarea admite como máximo 6 pasos, y las respuestas se limitan a 200–300 tokens.
 
@@ -256,7 +256,7 @@ Estimación con precios on-demand de `us-east-1`. Aún no se ha contrastado con 
 | Capa persistente | < 0,05 USD/mes |
 | GitHub Actions, GHCR y Grafana Cloud | 0, en planes gratuitos |
 | Carga, ataque y caos con `fake-llm` | 0 |
-| Modelo real | ≤ 5 USD |
+| Modelo real, con el endpoint gratuito de NVIDIA | 0 |
 | **Total del proyecto** (2 ensayos + defensa) | **≈ 3–5 USD** |
 
 Nada de lo que corre en el cluster crea recursos de AWS: sin volúmenes EBS dinámicos, NAT ni Elastic IP.
@@ -269,7 +269,7 @@ Nada de lo que corre en el cluster crea recursos de AWS: sin volúmenes EBS din�
 | Docker Hub | GHCR y mirror por digest | Sus límites de pull podrían bloquear el escalado en plena demo |
 | Sin KEDA en el camino crítico | KEDA con cola y CPU | La CPU no refleja la carga de un agente LLM |
 | Evitar componentes extra | Dapr y Redis | Orquestación durable, trazas automáticas y mTLS |
-| Sin LLM externos | OpenAI solo en modo protegido | Demostrar un modelo real con gasto acotado |
+| Sin LLM externos | Modelo externo solo en modo protegido | Demostrar un modelo real con gasto acotado |
 | CD desde GitHub Actions | CD con Argo CD | GitOps puro, sin exponer el API server |
 
 La justificación completa está en los [ADRs](docs/adrs/).

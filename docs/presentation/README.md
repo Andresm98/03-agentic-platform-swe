@@ -6,17 +6,18 @@ Guía para presentar la plataforma el viernes 13 de noviembre de 2026 **solo con
 
 ## Qué está comprobado
 
-Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manual; despliegue por GitOps; self-healing; una tarea completa por el NLB; KEDA escalando desde cero; un EC2 real unido por autoscaling; 2 destinos `healthy`; métricas y logs en Grafana; terminal por CloudShell, y un ejercicio de estudiante publicado y accesible en `/s/prueba/`.
+Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manual; despliegue por GitOps; self-healing; una tarea completa por el NLB; KEDA escalando desde cero; un EC2 real unido por autoscaling; 2 destinos `healthy`; métricas y logs en Grafana; terminal por CloudShell; un ejercicio de estudiante publicado y accesible en `/s/prueba/`; modelo real de NVIDIA con trazas en LangSmith; y la ráfaga de la capa de resiliencia, con respuestas `429`.
 
 | Sin comprobar | Consecuencia |
 |---|---|
-| Escritorio `ui-desktop` y sus accesos | Comprueba que abre antes de la presentación; las capturas son el plan B |
-| Demos con k6 desde CloudShell | La capa de ataque tiene una alternativa sin k6 |
+| Acceso a Dapr Dashboard desde el escritorio | Compruébalo el jueves; Argo CD y el ejercicio de estudiante ya se vieron desde él |
+| `make demo N=7` por script, desde un cluster en reposo | Pruébalo en un ensayo. El escalado real sí se comprobó, por carga |
+| Trazas distribuidas en Tempo | No las muestres sin revisarlas antes |
 | PR de un ejercicio desde un fork | Probado solo desde una rama del repositorio |
 
 ## Antes del viernes, desde la laptop
 
-1. Entra en las cuatro webs: GitHub, AWS, Grafana y LangSmith. Comprueba también el MFA.
+1. Entra en las cuatro webs: GitHub, AWS, Grafana y LangSmith. Comprueba también el MFA. Evita entrar a AWS como root; un usuario IAM necesita permisos de CloudShell, Systems Manager y `ssm-guiconnect` para el escritorio remoto.
 2. Abre CloudShell en `us-east-1` y confirma que funciona.
 3. Guarda en un lugar accesible **capturas de Argo CD y Dapr Dashboard**, como plan B si el escritorio remoto falla.
 4. Si puedes, ejecuta `up` y `down` una vez como ensayo. Cuesta menos de 1 USD.
@@ -25,9 +26,9 @@ No hagas cambios en `main` esa semana, ni fusiones los PR de Dependabot.
 
 ## Jueves por la noche: dejarlo todo listo
 
-El laboratorio se levanta el jueves y queda encendido hasta la presentación. Encendido en reposo cuesta unos 0,17 USD por hora: **unos 2,50 USD por una noche de 14 horas**, además de lo que dure la presentación.
+El laboratorio se levanta el jueves y queda encendido hasta la presentación. Encendido en reposo cuesta unos 0,17 USD por hora: **unos 2,50 USD por una noche de 14 horas**, además de lo que dure la presentación. El escritorio Windows añade unos céntimos por hora.
 
-**Haz esto primero: amplía el tiempo de vida.** `lab-reaper` destruye el laboratorio a las 6 horas, así que sin este cambio no llegaría a la mañana. En GitHub, ve a *Settings → Secrets and variables → Actions → Variables* y cambia `LAB_TTL_HOURS` de `6` a `18`.
+**Haz esto primero: amplía el tiempo de vida.** `lab-reaper` destruye el laboratorio a las 6 horas, así que sin este cambio no llegaría a la mañana. En GitHub, ve a *Settings → Secrets and variables → Actions → Variables* y cambia `LAB_TTL_HOURS` de `6` a `18`. Cuenta desde el `up`: si lanzas a las 20:00, llega hasta las 14:00 del viernes. Si presentas más tarde, súbelo.
 
 ### Revisión por servicio
 
@@ -37,7 +38,7 @@ El laboratorio se levanta el jueves y queda encendido hasta la presentación. En
 | **AWS** | Región `us-east-1`; EC2 sin instancias del laboratorio; los 12 parámetros bajo `/agentic-platform/k8s`; Budget activo | [SSM](https://us-east-1.console.aws.amazon.com/systems-manager/parameters/?region=us-east-1) y [Budgets](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) |
 | **Grafana** | La instancia abre; carpeta *Agentic Platform* con 6 dashboards; el token `agentic-alloy` no ha caducado | [Dashboards](https://andresm98.grafana.net/dashboards) y *Administration → Users and access → Cloud access policies* |
 | **LangSmith** | Puedes entrar; la clave `agentic-lab-gateway` sigue activa | [Settings → API Keys](https://smith.langchain.com) |
-| **OpenAI** | Solo si usarás el modelo real: saldo, *Auto recharge* desactivado y clave activa | [Facturación](https://platform.openai.com/settings/organization/billing/overview) |
+| **NVIDIA** | Puedes entrar y tu clave `nvapi-` sigue activa y con créditos | [build.nvidia.com](https://build.nvidia.com) |
 
 ### Levantar
 
@@ -91,7 +92,7 @@ kubectl get nodes
 kubectl -n argocd get applications
 ```
 
-**5. Espera a que todo esté sano.** Repite el último comando hasta ver **21 aplicaciones `Synced` y `Healthy`**, incluida `exercise-prueba`. Puede tardar 30-45 minutos.
+**5. Espera a que todo esté sano.** Repite el último comando hasta ver **22 aplicaciones `Synced` y `Healthy`**, incluidas `exercise-prueba` y `platform-ui-access`. Puede tardar 30-45 minutos.
 
 **6. Compruébalo:**
 
@@ -250,29 +251,22 @@ Ejecuta todo en CloudShell, en la carpeta del repositorio.
 | Min. | Capa | Acción |
 |---|---|---|
 | 0 | Introducción | Problema y arquitectura |
-| 4 | Elasticidad | Lanzar el escalado y dejarlo corriendo |
-| 5 | Infraestructura | Terraform y acceso sin SSH |
-| 10 | GitOps | Self-healing |
-| 15 | Flota agéntica | Tarea de principio a fin |
-| 21 | Elasticidad | Mostrar el EC2 real |
-| 26 | Resiliencia | Ataque |
-| 30 | Observabilidad | Grafana |
-| 33 | Ejercicios | Aplicación de un estudiante en vivo |
-| 36 | Cierre | Conclusiones |
+| 4 | Infraestructura | Terraform y acceso sin SSH |
+| 9 | GitOps | Self-healing |
+| 13 | Flota agéntica | Tarea de principio a fin |
+| 19 | Elasticidad | Lanzar el escalado y, mientras tanto, enseñar Grafana |
+| 26 | Elasticidad | Mostrar el EC2 real y retirar la carga de prueba |
+| 30 | Resiliencia | Ataque y contraste con el modelo real |
+| 34 | Ejercicios | Aplicación de un estudiante en vivo |
+| 37 | Cierre | Conclusiones |
+
+**Respeta este orden.** La demo de escalado ocupa la CPU de los workers con pods de relleno: mientras estén, los agentes podrían no tener sitio para arrancar.
 
 ### Introducción
 
 **Mensaje:** una plataforma Kubernetes autogestionada, efímera y reproducible, que ejecuta una flota de agentes de IA. Cada llamada al modelo cuesta dinero, así que un ataque no debe convertirse en una factura.
 
 Muestra el [diagrama del README](../../README.md#arquitectura). Di desde el principio que tiene **un único control plane y no es alta disponibilidad**: es una decisión consciente para un laboratorio de coste mínimo.
-
-### Elasticidad: lanzar
-
-Tarda varios minutos, así que empieza ahora y sigue con las demás capas:
-
-```bash
-make demo N=7
-```
 
 ### Capa: infraestructura
 
@@ -284,8 +278,6 @@ Muestra en GitHub la ejecución de `lab.yml` con sus aprobaciones, y en AWS las 
 
 **Mensaje:** Git es la fuente de verdad, y GitHub Actions nunca toca el cluster.
 
-Abre otra pestaña de CloudShell si la demo 7 sigue en marcha, y prepara la sesión con `cd 03-agentic-platform-swe` y los `export` de la Fase 1.
-
 ```bash
 kubectl -n argocd get applications
 make demo N=3
@@ -295,7 +287,7 @@ La demo borra un pod y altera las réplicas a mano, y el sistema se corrige solo
 
 ### Capa: flota agéntica
 
-**Mensaje:** el modelo decide el flujo, y Dapr Workflow lo hace durable.
+**Mensaje:** el modelo elige cada paso, guiado por su prompt y con un máximo de 6, y Dapr Workflow hace durable el flujo.
 
 ```bash
 kubectl -n apps get deploy
@@ -316,11 +308,17 @@ Muestra los tres agentes y el `pod` que atendió cada uno. Después, busca la ta
 {namespace="apps"} |= "<task_id>"
 ```
 
-### Elasticidad: resultado
+### Capa: elasticidad
 
 **Mensaje:** escala en dos niveles: pods y máquinas, con un máximo explícito de 3 EC2 para controlar el coste.
 
-Cuando termine la demo 7:
+Lanza el escalado. Tarda varios minutos, y mientras tanto puedes presentar la capa de observabilidad en Grafana, que no usa esta terminal:
+
+```bash
+make demo N=7
+```
+
+Cuando termine:
 
 ```bash
 make demo N=8
@@ -330,6 +328,12 @@ kubectl get nodes
 
 Muestra en AWS el nuevo EC2 y los 2 destinos `healthy`, y en Grafana el dashboard *Autoscaling*.
 
+**Retira la carga de prueba antes de seguir**, para devolver la CPU a los agentes:
+
+```bash
+kubectl delete namespace demo-capacity --wait=false
+```
+
 ### Capa: resiliencia
 
 **Mensaje:** ante un ataque, la plataforma rechaza tráfico en lugar de gastar dinero o caerse.
@@ -338,16 +342,13 @@ Muestra en AWS el nuevo EC2 y los 2 destinos `healthy`, y en Grafana el dashboar
 seq 1 300 | xargs -P 40 -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST "$NLB_URL/tasks" -H 'content-type: application/json' -H 'X-Demo-Token: token-falso' -d '{"goal":"ataque","complexity":1}' | sort | uniq -c
 ```
 
-Debes ver `429` junto a algunos `202`. Después, confirma que no se gastó nada:
+Debes ver `429` junto a algunos `202`; en la prueba fueron 116 y 184. Después, confirma que el token falso no llega al modelo real:
 
 ```bash
-kubectl -n apps port-forward svc/llm-gateway 18002:8000 >/dev/null 2>&1 &
-sleep 3
-curl -s http://localhost:18002/metrics | grep '^llm_tokens_total' | grep -c 'mode="live"'
-kill %%
+curl -s -X POST "$NLB_URL/tasks" -H 'content-type: application/json' -H 'X-Demo-Token: token-falso' -d '{"goal":"ataque","complexity":1}' | jq .mode
 ```
 
-El resultado debe ser `0`: el token falso nunca llega al modelo real.
+Debe responder `"simulated"`. Como contraste, ejecuta la tarea real de la sección [Modelo real](#modelo-real) y enséñala en LangSmith.
 
 **No lances cargas largas.** Una rampa de 8 minutos saturó el cluster en la prueba.
 
@@ -371,6 +372,45 @@ Muestra en este orden:
 
 **Di:** corre sin root, con cuota de recursos y sin poder salir a Internet.
 
+### Guía para que cada estudiante publique su proyecto
+
+Compártela con los estudiantes. Requiere una cuenta de GitHub, Git y, para probarlo en local, Docker. La guía completa y las reglas están en [`exercises/README.md`](../../exercises/README.md).
+
+1. **Haz un fork** del [repositorio](https://github.com/Andresm98/03-agentic-platform-swe). Al crearlo, **desmarca «Copy the main branch only»**, porque se trabaja desde la rama `stage`.
+2. **Copia el ejemplo con tu nombre**, en minúsculas y sin espacios:
+
+   ```bash
+   git clone https://github.com/<tu-usuario>/03-agentic-platform-swe.git
+   cd 03-agentic-platform-swe
+   git checkout -b ejercicio/<tu-nombre> origin/stage
+   cp -r exercises/_ejemplo exercises/<tu-nombre>
+   ```
+
+3. **Adáptalo a tu aplicación**, en cualquier lenguaje, dentro de `exercises/<tu-nombre>/`:
+   - En `exercise.yaml`, pon tu usuario de GitHub, tu puerto y una descripción.
+   - En el `Dockerfile`, usa versiones de imagen fijas, nunca `latest`, y termina con un `USER` numérico distinto de 0.
+   - Tu aplicación debe responder `200` en `/healthz` y `/readyz`, y funcionar con el sistema de archivos en solo lectura.
+4. **Pruébala en tu equipo:**
+
+   ```bash
+   docker build -t mi-ejercicio exercises/<tu-nombre>
+   docker run --rm -p 8000:8000 --read-only --user 10001 mi-ejercicio
+   ```
+
+5. **Súbela:**
+
+   ```bash
+   git add exercises/<tu-nombre>
+   git commit -m "feat(exercises): añadir <tu-nombre>"
+   git push -u origin ejercicio/<tu-nombre>
+   ```
+
+6. **Abre un Pull Request hacia la rama `stage`** de `Andresm98/03-agentic-platform-swe`. El PR solo puede tocar tu carpeta.
+7. **El instructor aprueba** la ejecución de CI, revisa el código y fusiona el PR.
+8. **Abre tu aplicación** en `http://<dirección-del-laboratorio>/s/<tu-nombre>/`, con el laboratorio encendido. Tarda unos minutos.
+
+**Como instructor:** caben hasta 3 ejercicios a la vez. Los PR desde forks exigen tu aprobación para ejecutar CI. Cuando se publique uno nuevo, pulsa **Actualizar ejercicios** en el escritorio remoto.
+
 ### Cierre
 
 **Mensaje final:** todo se destruye y cualquiera puede recrearlo desde Git. Coste total del proyecto: unos 3-5 USD (estimado).
@@ -383,7 +423,6 @@ Hazlo al terminar, sin esperar a nadie.
 2. Aprueba dos veces. El plan debe decir `0 to add` y `59 to destroy`, u 11 más si el escritorio sigue activo: se destruye con el laboratorio.
 3. Comprueba que la ejecución termine en verde, incluido `cost-check`.
 4. Comprueba en AWS que EC2 no tiene instancias en ejecución.
-
 5. Devuelve `LAB_TTL_HOURS` a `6` en las variables de GitHub.
 
 `lab-reaper` destruye el laboratorio al superar `LAB_TTL_HOURS`, pero nunca se ha visto actuar: no dependas de él.
@@ -398,6 +437,8 @@ Hazlo al terminar, sin esperar a nadie.
 | Se corta CloudShell o aparece `127.0.0.1:6443: connection refused` | Repite el paso 4; sigue con Grafana y AWS mientras tanto |
 | El EC2 tarda demasiado | Continúa y vuelve a él antes de cerrar |
 | `make demo` falla | Ejecuta el comando equivalente de `kubectl` y sigue |
+| Falla `post-deploy` en GitHub con `exit code 3` | Es la variable `NLB_URL` con un salto de línea; no afecta a la demo |
+| Una tarea se queda en `running` | Comprueba que retiraste `demo-capacity` y mira `kubectl -n apps get pods` |
 | La API responde `503` | Explica que la plataforma rechaza trabajo al saturarse; pasa a Grafana |
 
 ## Preguntas probables
@@ -409,7 +450,7 @@ Hazlo al terminar, sin esperar a nadie.
 | ¿Qué pasa si cae el control plane? | Se pierde el cluster y se recrea desde Git. No es alta disponibilidad |
 | ¿Los agentes analizan la infraestructura en tiempo real? | No. Son una carga de trabajo de demostración: consultan 8 documentos estáticos y ejecutan cálculos de CPU. El producto evaluado es la plataforma que los ejecuta |
 | ¿Son agentes de propósito general? | Tampoco. Aceptan cualquier objetivo en texto, pero solo tienen herramientas fijas. Para darles una función real se añade una herramienta nueva como adaptador, sin cambiar la plataforma |
-| ¿Qué impide gastar el presupuesto? | Token de admisión, 3 USD en el gateway y 5 USD en OpenAI |
+| ¿Qué impide abusar del modelo real? | El token de admisión y los límites del gateway: 5 tareas por minuto, 50 en total y 6 llamadas por tarea. Hoy usa un endpoint gratuito de NVIDIA, y cambiar de proveedor solo requiere configuración |
 
 ## Lo que no debes afirmar
 
@@ -417,14 +458,14 @@ Hazlo al terminar, sin esperar a nadie.
 - Que escala sin límite: el máximo son 3 EC2.
 - Cifras de coste como reales: son estimaciones hasta ver la factura.
 
-## Cambiar la clave de OpenAI
+## Cambiar la clave del modelo
 
-La clave se llama `agentic-lab-gateway` y vive en SSM, en `/agentic-platform/k8s/openai-api-key`. Para sustituirla por la de un proyecto nuevo, en CloudShell:
+El gateway usa el endpoint gratuito de NVIDIA, con el modelo `nvidia/nemotron-3.5-bolt-e4b`. Su clave, que empieza por `nvapi-`, se guarda en SSM, en `/agentic-platform/k8s/openai-api-key`: el parámetro conserva ese nombre porque la API es compatible con la de OpenAI. Para sustituirla, en CloudShell:
 
 ```bash
-read -rs -p "Clave de OpenAI: " OPENAI_KEY; echo
-aws ssm put-parameter --name /agentic-platform/k8s/openai-api-key --type SecureString --overwrite --value "$OPENAI_KEY" --query Version --output text
-unset OPENAI_KEY
+read -rs -p "Clave del modelo: " MODEL_KEY; echo
+aws ssm put-parameter --name /agentic-platform/k8s/openai-api-key --type SecureString --overwrite --value "$MODEL_KEY" --query Version --output text
+unset MODEL_KEY
 ```
 
 Si el laboratorio está apagado, no hace falta nada más: el próximo `up` usará la clave nueva. Si está encendido, aplícala con el túnel abierto:
@@ -438,7 +479,7 @@ kubectl -n apps rollout status deployment/llm-gateway --timeout=120s
 
 ## Modelo real
 
-`LLM_GLOBAL_MODE: live` ya está activo en `main`. Sin `X-Demo-Token` válido, todas las tareas siguen en modo simulado. Gasta dinero real solo con ese token, con un tope de 3 USD, y una tarea consume unos 1750 tokens.
+`LLM_GLOBAL_MODE: live` ya está activo en `main`. Sin `X-Demo-Token` válido, todas las tareas siguen en modo simulado. Con ese token, cada tarea llama al endpoint gratuito de NVIDIA y consume unos 1750 tokens de sus créditos.
 
 1. Hazlo en la capa de resiliencia, después de la ráfaga con token falso: el contraste es el mensaje.
 2. Lee el token y ejecuta la demo en CloudShell:
@@ -449,7 +490,7 @@ kubectl -n apps rollout status deployment/llm-gateway --timeout=120s
    ```
 
 3. Muestra la llamada en [LangSmith](https://smith.langchain.com): entra en `agentic-platform`, abre **Tracing** con el entorno **Production** y recarga. Cada llamada aparece como `llm.orchestrator`, `llm.researcher` o `llm.executor`. Puede tardar un par de minutos, porque LangSmith procesa las trazas en segundo plano.
-4. Después de la defensa, vuelve a `simulated` y revoca la clave de OpenAI.
+4. Después de la defensa, vuelve a `simulated` y revoca la clave de NVIDIA.
 
 
 ***Notas***: cambios breves.

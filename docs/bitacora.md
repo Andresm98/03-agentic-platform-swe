@@ -359,6 +359,8 @@ Comprobado en local: `helm template` deja 0 referencias a `remote.kubernetes.sec
 
 **15. `NLB_URL` con salto de línea.** La variable se guardó con `\r\n` y `post-deploy` fallaba con `exit code 3`. Debe escribirse sin saltos de línea.
 
+**16. Cambio de proveedor del modelo.** Se dejó de usar OpenAI por un problema con la cuenta y se pasó al endpoint gratuito de NVIDIA, con `nvidia/nemotron-3.5-bolt-e4b`, solo por configuración. Comprobado con la demo 15: tarea real completada y trazas en LangSmith. Con precio 0, el tope en USD no actúa: limitan el uso el token de demo y los límites de tareas del gateway. La clave sigue en SSM, en `/agentic-platform/k8s/openai-api-key`.
+
 ### Correcciones en la guía
 
 Dos afirmaciones de [SETUP.md](SETUP.md) no coincidieron con lo observado y se corrigieron:
