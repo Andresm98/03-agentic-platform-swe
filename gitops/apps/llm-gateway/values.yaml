@@ -19,6 +19,9 @@ env:
   LLM_ALLOWED_MODELS: '{"gpt-4o-mini": {"input_usd_per_1m": 0.15, "output_usd_per_1m": 0.60}, "gpt-4.1-mini": {"input_usd_per_1m": 0.40, "output_usd_per_1m": 1.60}}'
   LANGSMITH_ENABLED: "true"
   LANGSMITH_PROJECT: agentic-platform
+  # El workspace es por agentes: estas cabeceras sustituyen a Langsmith-Project.
+  LANGSMITH_AGENT_ID: agentic-platform
+  LANGSMITH_AGENT_ENVIRONMENT: production
   LANGSMITH_SIMULATED_SAMPLE_RATE: "0.01"
   OTEL_ENABLED: "true"
   OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317

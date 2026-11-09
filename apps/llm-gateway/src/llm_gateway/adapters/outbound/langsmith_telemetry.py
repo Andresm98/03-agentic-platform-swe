@@ -89,6 +89,17 @@ def span_attributes(call: LLMCallRecord) -> dict[str, Any]:
     return attrs
 
 
+def otlp_headers(api_key: str, project: str, agent_id: str, agent_environment: str) -> dict[str, str]:
+    """Cabeceras OTLP: los workspaces por agentes rechazan mezclar agente y proyecto."""
+    if agent_id:
+        return {
+            "x-api-key": api_key,
+            "Langsmith-Agent-Id": agent_id,
+            "Langsmith-Agent-Environment": agent_environment,
+        }
+    return {"x-api-key": api_key, "Langsmith-Project": project}
+
+
 class LangSmithTelemetry:
     def __init__(
         self,
@@ -100,10 +111,12 @@ class LangSmithTelemetry:
         on_success: Callable[[int], None],
         exporter: SpanExporter | None = None,
         timeout_s: float = 5.0,
+        agent_id: str = "",
+        agent_environment: str = "",
     ) -> None:
         inner = exporter or OTLPSpanExporter(
             endpoint=f"{endpoint.rstrip('/')}/v1/traces",
-            headers={"x-api-key": api_key, "Langsmith-Project": project},
+            headers=otlp_headers(api_key, project, agent_id, agent_environment),
             timeout=timeout_s,
         )
         self._on_error = on_error

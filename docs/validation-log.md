@@ -103,6 +103,16 @@ Nota: `docker compose restart` no sirve para esta prueba. Con `network_mode: ser
 
 Sin probar: `exercises.yml` en GitHub Actions (no hay actionlint local), ApplicationSet, `AppProject`, `ValidatingAdmissionPolicy`, cuota y Traefik con prefijo en un cluster con Argo CD.
 
+## Modelo real (2026-11-09)
+
+| Comprobación | Resultado |
+|---|---|
+| Demo 15 con `X-Demo-Token` | OK: `mode: live`, 1746 tokens reales, tarea `completed`, sin degradación y evaluación 80 |
+| `POST /tasks` sin token, con `LLM_GLOBAL_MODE: live` | OK: `mode: simulated` |
+| `POST /tasks` con token falso | OK: `mode: simulated` |
+
+El valor «Presupuesto: 4 USD» de la demo es un artefacto: suma la métrica truncada de las 2 réplicas del gateway. Sin probar: agotar el presupuesto y la degradación a `fake-llm`.
+
 ## Flujo de ejercicios en GitHub (2026-11-08)
 
 PR #9, `exercises/prueba`, desde una rama del propio repositorio.

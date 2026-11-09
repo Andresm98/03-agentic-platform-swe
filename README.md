@@ -29,7 +29,8 @@ Actualizado el 2026-11-08. **El laboratorio ya funciona en AWS y atiende tareas 
 | Tarea completa por el NLB | ✅ Probado | Orquestador y 3 agentes en 23 s, con KEDA escalando desde cero |
 | Autoscaling de nodos | ✅ Probado | Bajo carga real, el ASG subió de 1 a 2, el EC2 se unió como `Ready` y el NLB tuvo 2 destinos `healthy` |
 | Telemetría en Grafana Cloud | ✅ Probado | Dashboards con datos de la arquitectura y logs por `task_id` en Loki |
-| Modelo real de OpenAI y LangSmith | ⏳ Sin probar | |
+| Modelo real de OpenAI | ✅ Probado | Tarea real completada por el NLB con token de demo; sin token, o con uno falso, sigue en modo simulado |
+| Trazas en LangSmith | ⏳ Por confirmar | |
 | Flujo de ejercicios en la rama `stage` | ✅ Probado | De PR a despliegue por Argo CD, respondiendo en `/s/prueba/` |
 
 ## Arquitectura

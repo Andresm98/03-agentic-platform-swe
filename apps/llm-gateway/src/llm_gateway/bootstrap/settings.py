@@ -56,6 +56,11 @@ class GatewaySettings(BaseSettings):
         default_factory=lambda: env_str("LANGSMITH_OTEL_ENDPOINT", "https://api.smith.langchain.com/otel")
     )
     langsmith_project: str = field(default_factory=lambda: env_str("LANGSMITH_PROJECT", "agentic-platform"))
+    # Workspace por agentes: si hay agente, LangSmith exige estas dos cabeceras en lugar del proyecto.
+    langsmith_agent_id: str = field(default_factory=lambda: env_str("LANGSMITH_AGENT_ID", ""))
+    langsmith_agent_environment: str = field(
+        default_factory=lambda: env_str("LANGSMITH_AGENT_ENVIRONMENT", "production")
+    )
     langsmith_simulated_sample_rate: float = field(
         default_factory=lambda: env_float("LANGSMITH_SIMULATED_SAMPLE_RATE", 0.01)
     )

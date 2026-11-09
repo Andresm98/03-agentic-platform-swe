@@ -119,3 +119,20 @@ def test_record_with_bad_data_is_fail_open() -> None:
     tele.shutdown()
     assert c.errors == 1
     NoopTelemetry().record(RECORD)
+
+
+def test_otlp_headers_project_workspace() -> None:
+    from llm_gateway.adapters.outbound.langsmith_telemetry import otlp_headers
+
+    assert otlp_headers("k", "proj", "", "production") == {"x-api-key": "k", "Langsmith-Project": "proj"}
+
+
+def test_otlp_headers_agent_workspace_excludes_project() -> None:
+    from llm_gateway.adapters.outbound.langsmith_telemetry import otlp_headers
+
+    headers = otlp_headers("k", "proj", "agentic-platform", "production")
+    assert headers == {
+        "x-api-key": "k",
+        "Langsmith-Agent-Id": "agentic-platform",
+        "Langsmith-Agent-Environment": "production",
+    }

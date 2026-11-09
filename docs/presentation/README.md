@@ -12,7 +12,7 @@ Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manua
 |---|---|
 | Escritorio `ui-desktop` y sus accesos | Comprueba que abre antes de la presentación; las capturas son el plan B |
 | Demos con k6 desde CloudShell | La capa de ataque tiene una alternativa sin k6 |
-| Modelo real y LangSmith | Opcional, al final |
+| Trazas en LangSmith | Compruébalas antes de mostrarlas |
 | PR de un ejercicio desde un fork | Probado solo desde una rama del repositorio |
 
 ## Antes del viernes, desde la laptop
@@ -320,14 +320,13 @@ Hazlo al terminar, sin esperar a nadie.
 
 - Que es alta disponibilidad o un diseño de producción.
 - Que escala sin límite: el máximo son 3 EC2.
-- Que el modelo real está probado, salvo que lo pruebes antes.
 - Cifras de coste como reales: son estimaciones hasta ver la factura.
 
-## Modo opcional: modelo real
+## Modelo real
 
-Hazlo solo si lo ensayaste antes. Gasta dinero real, con un tope de 3 USD.
+`LLM_GLOBAL_MODE: live` ya está activo en `main`. Sin `X-Demo-Token` válido, todas las tareas siguen en modo simulado. Gasta dinero real solo con ese token, con un tope de 3 USD, y una tarea consume unos 1750 tokens.
 
-1. **Antes del `up`**, en el editor web de GitHub, cambia `LLM_GLOBAL_MODE` a `live` en `gitops/apps/llm-gateway/values.yaml`, y espera a que termine `main`.
+1. Hazlo en la capa de resiliencia, después de la ráfaga con token falso: el contraste es el mensaje.
 2. Lee el token y ejecuta la demo en CloudShell:
 
    ```bash
@@ -336,4 +335,4 @@ Hazlo solo si lo ensayaste antes. Gasta dinero real, con un tope de 3 USD.
    ```
 
 3. Muestra la llamada en LangSmith, proyecto `agentic-platform`.
-4. Al terminar, vuelve a `simulated`.
+4. Después de la defensa, vuelve a `simulated` y revoca la clave de OpenAI.

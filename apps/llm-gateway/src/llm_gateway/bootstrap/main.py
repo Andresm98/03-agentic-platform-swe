@@ -46,6 +46,8 @@ def make_telemetry(settings: GatewaySettings, metrics: FleetMetrics) -> LLMTelem
         endpoint=settings.langsmith_endpoint,
         api_key=settings.langsmith_api_key,
         project=settings.langsmith_project,
+        agent_id=settings.langsmith_agent_id,
+        agent_environment=settings.langsmith_agent_environment,
         on_error=lambda: metrics.telemetry_errors.labels("langsmith").inc(),
         on_success=lambda n: metrics.telemetry_exported.labels("langsmith", "any").inc(n),
     )
