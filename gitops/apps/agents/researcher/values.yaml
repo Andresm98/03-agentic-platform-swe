@@ -1,7 +1,7 @@
 # researcher. image.tag solo lo escribe CI.
 image:
   repository: ghcr.io/andresm98/agentic-platform/researcher
-  tag: "37be8e6b42e576e8cb8c75bb63976d012518f645"
+  tag: "37d573cd540ff37e88e844d5efcd2c4ab1389c54"
 env:
   LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
   LLM_MODEL: nvidia/nemotron-3.5-bolt-e4b
