@@ -21,7 +21,8 @@ Registro de lo ejecutado durante el despliegue del laboratorio, en orden. Solo i
 | 11 | Mirror de imágenes | Completado |
 | 12 | Dashboards de Grafana | Completado |
 | 13 | Primer despliegue (`lab.yml up`) | Completado: primera tarea real terminada por el NLB |
-| 14 | Escenarios de demo | Pendiente |
+| 14 | Escenarios de demo | Parcial: ver el registro de validación |
+| 15 | Ensayo desde cero por navegador | Completado |
 
 | Área | Situación actual |
 |---|---|
@@ -343,6 +344,20 @@ Comprobado en local: `helm template` deja 0 referencias a `remote.kubernetes.sec
 **12. El script de demo deja k6 en ejecución.** Su `trap` mata el cliente de Docker, pero no el contenedor. Se detuvo a mano y se añadió `k6_stop` a los scripts.
 
 **Corrección de las incidencias 11 y 12:** límite de memoria del sidecar `daprd` de `orchestrator` a 512 Mi y `executor` limitado a 4 réplicas. Un primer ajuste aumentó por error la memoria de la aplicación, que no era la que fallaba, y se revirtió. No añade máquinas y reduce el consumo máximo de CPU.
+
+### Ensayo desde cero (2026-11-09)
+
+`lab.yml up` completo por navegador, sin intervención manual, y uso desde CloudShell.
+
+**Comprobado:** arranque sin pasos manuales, 22 aplicaciones `Synced` y `Healthy`, ejercicio `prueba` respondiendo en `/s/prueba/`, modelo real con token, barrera con token falso o sin token, trazas en LangSmith, GitHub App informando a GitHub, y escritorio `ui-desktop` creado por su pipeline, con Argo CD accesible.
+
+**Cómo enviar tareas y verlas en LangSmith:** con `POST /tasks` por el NLB y `X-Demo-Token`, según la [guía de presentación](presentation/README.md#enviar-una-tarea-con-tu-propio-objetivo). Las llamadas reales se registran siempre; las simuladas, el 1 %.
+
+**13. Chart y values en ramas distintas.** Argo CD no admite dos revisiones del mismo repositorio en una Application. El ApplicationSet de ejercicios lee ahora ambos de `stage`.
+
+**14. Trazas descartadas en LangSmith.** El endpoint responde `200` y procesa después, y descarta los spans cuyo padre nunca recibe. El gateway heredaba un padre que solo existe en Tempo; ahora cada llamada es una traza raíz. También se añadieron las cabeceras de workspace por agentes.
+
+**15. `NLB_URL` con salto de línea.** La variable se guardó con `\r\n` y `post-deploy` fallaba con `exit code 3`. Debe escribirse sin saltos de línea.
 
 ### Correcciones en la guía
 

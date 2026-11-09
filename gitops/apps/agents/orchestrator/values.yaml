@@ -4,7 +4,7 @@ image:
   tag: "0f0251e4f7df8693498ae8b1f226bdf28e98a6c2"
 env:
   LLM_BASE_URL: http://llm-gateway.apps.svc.cluster.local:8000/v1
-  LLM_MODEL: gpt-4o-mini
+  LLM_MODEL: nvidia/nemotron-3.5-bolt-e4b
   LLM_MAX_TOKENS: "300"
   OTEL_ENABLED: "true"
   OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy-otlp.monitoring.svc.cluster.local:4317

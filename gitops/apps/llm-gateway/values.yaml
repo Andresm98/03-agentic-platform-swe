@@ -15,8 +15,10 @@ env:
   TASK_MAX_LLM_CALLS: "6"
   LLM_MAX_INPUT_TOKENS: "2000"
   LLM_AGENT_MAX_TOKENS: '{"orchestrator": 300, "default": 200}'
-  # Precios estándar comprobados el 2026-11-08 en developers.openai.com/api/docs/pricing.
-  LLM_ALLOWED_MODELS: '{"gpt-4o-mini": {"input_usd_per_1m": 0.15, "output_usd_per_1m": 0.60}, "gpt-4.1-mini": {"input_usd_per_1m": 0.40, "output_usd_per_1m": 1.60}}'
+  # API compatible con OpenAI de NVIDIA. La clave sigue en el parámetro SSM openai-api-key.
+  OPENAI_BASE_URL: https://integrate.api.nvidia.com/v1
+  # Endpoint gratuito: precio 0. Limitan el uso LIVE_TASKS_* y TASK_MAX_LLM_CALLS.
+  LLM_ALLOWED_MODELS: '{"nvidia/nemotron-3.5-bolt-e4b": {"input_usd_per_1m": 0, "output_usd_per_1m": 0}}'
   LANGSMITH_ENABLED: "true"
   LANGSMITH_PROJECT: agentic-platform
   # El workspace es por agentes: estas cabeceras sustituyen a Langsmith-Project.

@@ -111,6 +111,8 @@ Sin probar: `exercises.yml` en GitHub Actions (no hay actionlint local), Applica
 | `POST /tasks` sin token, con `LLM_GLOBAL_MODE: live` | OK: `mode: simulated` |
 | `POST /tasks` con token falso | OK: `mode: simulated` |
 
+LangSmith muestra las llamadas `llm.orchestrator`, `llm.researcher` y `llm.executor` tras enviar cada una como traza raíz: LangSmith descartaba en silencio los spans cuyo padre, en Tempo, nunca recibía.
+
 El valor «Presupuesto: 4 USD» de la demo es un artefacto: suma la métrica truncada de las 2 réplicas del gateway. Sin probar: agotar el presupuesto y la degradación a `fake-llm`.
 
 ## Flujo de ejercicios en GitHub (2026-11-08)

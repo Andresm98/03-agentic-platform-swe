@@ -12,7 +12,6 @@ Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manua
 |---|---|
 | Escritorio `ui-desktop` y sus accesos | Comprueba que abre antes de la presentación; las capturas son el plan B |
 | Demos con k6 desde CloudShell | La capa de ataque tiene una alternativa sin k6 |
-| Trazas en LangSmith | Compruébalas antes de mostrarlas |
 | PR de un ejercicio desde un fork | Probado solo desde una rama del repositorio |
 
 ## Antes del viernes, desde la laptop
@@ -43,7 +42,7 @@ El laboratorio se levanta el jueves y queda encendido hasta la presentación. En
 ### Levantar
 
 1. Sigue la **Fase 1** completa, hasta que `make demo N=1` termine en `OK`.
-2. Registra la URL del NLB: en *Variables*, crea o actualiza `NLB_URL` con el valor del resumen de la ejecución.
+2. Registra la URL del NLB: en *Variables*, crea o actualiza `NLB_URL` con el valor del resumen de la ejecución. **Escríbela sin saltos de línea ni espacios al final**, o `post-deploy` fallará con `exit code 3`.
 3. En Grafana, confirma que el dashboard *Kubernetes* muestra datos y que Loki devuelve líneas para `{namespace="apps"}`.
 4. En CloudShell, envía una tarea, como en la capa de flota agéntica, y comprueba que llega a `completed`.
 5. Levanta el escritorio con **`ui-desktop`** y comprueba que abre Argo CD, Dapr Dashboard y *Ejercicios* (ver [Abrir las interfaces](#abrir-las-interfaces-argo-cd-dapr-y-ejercicios)).
@@ -189,6 +188,47 @@ Sigue [Abrir las interfaces](#abrir-las-interfaces-argo-cd-dapr-y-ejercicios) y 
 | Ejercicios | Muestra el enlace `prueba`, que responde |
 
 Haz en ese momento las **capturas de Argo CD y Dapr Dashboard**: son el plan B de la presentación.
+
+## Enviar una tarea con tu propio objetivo
+
+Las tareas se envían por la **API HTTP pública**, a través del NLB, con `POST /tasks`. Nunca se habla directamente con un agente: el orquestador recibe la petición y reparte el trabajo por NATS. El objetivo es el campo `goal`.
+
+En CloudShell, con `NLB_URL` exportada, cambia solo el texto entre comillas de `GOAL`:
+
+```bash
+GOAL="Explica cómo se protege el gasto en el modelo"
+TASK=$(curl -s -X POST "$NLB_URL/tasks" -H 'content-type: application/json' -d "$(jq -n --arg g "$GOAL" '{goal: $g, complexity: 2}')")
+echo "$TASK" | jq .
+ID=$(echo "$TASK" | jq -r .task_id)
+```
+
+Consulta el resultado, repitiendo hasta ver `completed`:
+
+```bash
+curl -s "$NLB_URL/tasks/$ID" | jq '{status, mode, degraded, summary, steps: [.steps[]? | {agent, status, pod}]}'
+```
+
+**Para usar el modelo real y verlo en LangSmith**, añade tu token a la petición. La respuesta debe decir `"mode": "live"`:
+
+```bash
+export DEMO_TOKEN=$(aws ssm get-parameter --name /agentic-platform/k8s/demo-token --with-decryption --query Parameter.Value --output text)
+GOAL="Resume la elasticidad de la plataforma"
+TASK=$(curl -s -X POST "$NLB_URL/tasks" -H 'content-type: application/json' -H "X-Demo-Token: $DEMO_TOKEN" -d "$(jq -n --arg g "$GOAL" '{goal: $g, complexity: 1}')")
+echo "$TASK" | jq .
+ID=$(echo "$TASK" | jq -r .task_id)
+```
+
+| Campo o cabecera | Valores | Efecto |
+|---|---|---|
+| `goal` | Texto, de 1 a 2000 caracteres | Lo que se le pide a la flota |
+| `complexity` | Entero de 1 a 10; por defecto, 3 | Cuánta CPU consume el `executor` |
+| `X-Demo-Token` | Tu token | Con él, `mode: live`. Sin él, o con uno falso, `mode: simulated` |
+
+No se admiten más campos: añadir otro devuelve `422`.
+
+**Para verla en LangSmith, envía la tarea con `X-Demo-Token`.** Las llamadas reales se registran siempre; las simuladas, solo el 1 %, así que una tarea sin token casi nunca aparecerá. Tras unos 2 minutos, abre `agentic-platform` → **Tracing** → **Production** y recarga. Cada llamada es una fila independiente, `llm.orchestrator`, `llm.researcher` o `llm.executor`, y su metadato `task_id` coincide con el de tu petición.
+
+Ten en cuenta que los agentes consultan una base de conocimiento de 8 documentos sobre la propia plataforma. Los objetivos que mejor funcionan tratan de autoscaling, mensajería, resiliencia, coste, workflow, seguridad, observabilidad o GitOps.
 
 ## Fase 2: pestañas para la presentación
 
@@ -367,6 +407,8 @@ Hazlo al terminar, sin esperar a nadie.
 | ¿Por qué Argo CD va por un escritorio remoto? | Las consolas administrativas nunca se exponen a Internet: solo son accesibles dentro de la VPC |
 | ¿Por qué K3s y no EKS? | Coste y control: EKS añade unos 73 USD al mes solo por el plano de control |
 | ¿Qué pasa si cae el control plane? | Se pierde el cluster y se recrea desde Git. No es alta disponibilidad |
+| ¿Los agentes analizan la infraestructura en tiempo real? | No. Son una carga de trabajo de demostración: consultan 8 documentos estáticos y ejecutan cálculos de CPU. El producto evaluado es la plataforma que los ejecuta |
+| ¿Son agentes de propósito general? | Tampoco. Aceptan cualquier objetivo en texto, pero solo tienen herramientas fijas. Para darles una función real se añade una herramienta nueva como adaptador, sin cambiar la plataforma |
 | ¿Qué impide gastar el presupuesto? | Token de admisión, 3 USD en el gateway y 5 USD en OpenAI |
 
 ## Lo que no debes afirmar
@@ -374,6 +416,25 @@ Hazlo al terminar, sin esperar a nadie.
 - Que es alta disponibilidad o un diseño de producción.
 - Que escala sin límite: el máximo son 3 EC2.
 - Cifras de coste como reales: son estimaciones hasta ver la factura.
+
+## Cambiar la clave de OpenAI
+
+La clave se llama `agentic-lab-gateway` y vive en SSM, en `/agentic-platform/k8s/openai-api-key`. Para sustituirla por la de un proyecto nuevo, en CloudShell:
+
+```bash
+read -rs -p "Clave de OpenAI: " OPENAI_KEY; echo
+aws ssm put-parameter --name /agentic-platform/k8s/openai-api-key --type SecureString --overwrite --value "$OPENAI_KEY" --query Version --output text
+unset OPENAI_KEY
+```
+
+Si el laboratorio está apagado, no hace falta nada más: el próximo `up` usará la clave nueva. Si está encendido, aplícala con el túnel abierto:
+
+```bash
+kubectl -n apps annotate externalsecret llm-gateway-secrets force-sync="$(date +%s)" --overwrite
+sleep 15
+kubectl -n apps rollout restart deployment/llm-gateway
+kubectl -n apps rollout status deployment/llm-gateway --timeout=120s
+```
 
 ## Modelo real
 
