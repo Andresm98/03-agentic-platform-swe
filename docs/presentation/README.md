@@ -1,161 +1,197 @@
-# Guion de la presentación por capas
+# Guía del viernes: despliegue, demostración y cierre
 
-Guía para presentar la plataforma el viernes 13 de noviembre de 2026, activando y demostrando cada capa en vivo. Duración prevista de la parte técnica: unos 40 minutos.
+Guía para presentar la plataforma el viernes 13 de noviembre de 2026 **solo con un navegador**, desde una laptop sin herramientas instaladas. Se usan únicamente GitHub, la consola de AWS con CloudShell, Grafana y LangSmith.
 
-La idea central: **el sistema ya está arriba al empezar, y en cada capa activas su comportamiento delante del público.** El arranque completo se hace antes, porque es demasiado largo para hacerlo en directo.
+**Idea central:** el sistema se despliega antes de empezar, y en cada capa activas su comportamiento delante del público.
 
-Comandos y accesos detallados: [uso en vivo](../live-use.md). Evidencia: [registro de validación](../validation-log.md).
+## Qué está comprobado
 
-## Estado de cada capa
+Comprobado el 8 de noviembre en AWS: despliegue por GitOps, self-healing, una tarea completa por el NLB, KEDA escalando desde cero, un EC2 real unido por autoscaling, 2 destinos `healthy`, métricas y logs en Grafana, y terminal por CloudShell.
 
-| Capa | Demostrado en AWS | Falta antes del viernes |
+| Sin comprobar | Consecuencia |
+|---|---|
+| `lab.yml up` desde cero con las correcciones de ese día | Lanza con margen: 2 horas antes |
+| Demos con k6 desde CloudShell | La capa de ataque tiene una alternativa sin k6 |
+| Modelo real y LangSmith | Opcional, al final |
+| Publicar un ejercicio por `stage` | Fuera del guion, salvo que lo pruebes antes |
+
+## Antes del viernes, desde la laptop
+
+1. Entra en las cuatro webs: GitHub, AWS, Grafana y LangSmith. Comprueba también el MFA.
+2. Abre CloudShell en `us-east-1` y confirma que funciona.
+3. Guarda en un lugar accesible las **capturas de Argo CD y Dapr Dashboard**. Esas interfaces no se pueden abrir desde la laptop.
+4. Si puedes, ejecuta `up` y `down` una vez como ensayo. Cuesta menos de 1 USD.
+
+No hagas cambios en `main` esa semana, ni fusiones los PR de Dependabot.
+
+## Jueves por la noche: dejarlo todo listo
+
+El laboratorio se levanta el jueves y queda encendido hasta la presentación. Encendido en reposo cuesta unos 0,17 USD por hora: **unos 2,50 USD por una noche de 14 horas**, además de lo que dure la presentación.
+
+**Haz esto primero: amplía el tiempo de vida.** `lab-reaper` destruye el laboratorio a las 6 horas, así que sin este cambio no llegaría a la mañana. En GitHub, ve a *Settings → Secrets and variables → Actions → Variables* y cambia `LAB_TTL_HOURS` de `6` a `18`.
+
+### Revisión por servicio
+
+| Servicio | Qué comprobar | Dónde |
 |---|---|---|
-| 1. Infraestructura | Sí | Ensayo desde cero |
-| 2. GitOps | Sí | Nada |
-| 3. Flota agéntica | Sí, tarea real por el NLB | Comprobar la flota tras los ajustes de capacidad |
-| 4. Elasticidad | Sí, EC2 real unido al cluster | Repetir desde 1 worker y comprobar el scale-down |
-| 5. Resiliencia | No | Demos 13 y 14 |
-| 6. Control de gasto y modelo real | No | Demo 15 |
-| 7. Observabilidad | Métricas y logs | Trazas y LangSmith |
-| 8. Ejercicios | No en el cluster | Publicar un ejercicio real por `stage` |
+| **GitHub** | Puedes entrar; existen los environments `lab`, `lab-reaper` y `observability`; existe la rama `stage`; no hay PR de Dependabot fusionados | [Environments](https://github.com/Andresm98/03-agentic-platform-swe/settings/environments) y [Variables](https://github.com/Andresm98/03-agentic-platform-swe/settings/variables/actions) |
+| **AWS** | Región `us-east-1`; EC2 sin instancias del laboratorio; los 12 parámetros bajo `/agentic-platform/k8s`; Budget activo | [SSM](https://us-east-1.console.aws.amazon.com/systems-manager/parameters/?region=us-east-1) y [Budgets](https://us-east-1.console.aws.amazon.com/billing/home#/budgets) |
+| **Grafana** | La instancia abre; carpeta *Agentic Platform* con 6 dashboards; el token `agentic-alloy` no ha caducado | [Dashboards](https://andresm98.grafana.net/dashboards) y *Administration → Users and access → Cloud access policies* |
+| **LangSmith** | Puedes entrar; la clave `agentic-lab-gateway` sigue activa | [Settings → API Keys](https://smith.langchain.com) |
+| **OpenAI** | Solo si usarás el modelo real: saldo, *Auto recharge* desactivado y clave activa | [Facturación](https://platform.openai.com/settings/organization/billing/overview) |
 
-## Antes del viernes
+### Levantar
 
-**Regla:** después del ensayo, ningún cambio en `main`, ni siquiera los PR de Dependabot. La excepción es el cambio a modo `live`, descrito más abajo.
+1. Sigue la **Fase 1** completa, hasta que `make demo N=1` termine en `OK`.
+2. Registra la URL del NLB: en *Variables*, crea o actualiza `NLB_URL` con el valor del resumen de la ejecución.
+3. En Grafana, confirma que el dashboard *Kubernetes* muestra datos y que Loki devuelve líneas para `{namespace="apps"}`.
+4. En CloudShell, envía una tarea, como en la capa de flota agéntica, y comprueba que llega a `completed`.
+5. Deja el laboratorio encendido y cierra CloudShell. **No lances pruebas de carga esa noche.**
 
-**Ensayo (martes o miércoles).** Haz `lab.yml up` desde cero, sin intervenciones manuales, y recorre este guion entero con cronómetro. Durante el ensayo:
+### Viernes por la mañana
 
-- Captura pantallas de cada capa para el plan B: Argo CD, Grafana con el escalado, EC2 y NLB con 2 destinos.
-- Guarda la salida de cada demo en un archivo.
-- Apaga con `lab.yml down` al terminar.
+CloudShell habrá cerrado la sesión. Treinta minutos antes de empezar:
 
-**Modo real.** Cámbialo antes de desplegar, no durante la presentación: un commit en vivo lanza `main` y tarda unos 7 minutos.
+1. Abre CloudShell y repite el **paso 4** de la Fase 1, omitiendo el `git clone` si la carpeta sigue ahí.
+2. Ejecuta `kubectl -n argocd get applications` y `make demo N=1`.
+3. Abre las pestañas de la Fase 2.
 
-1. Pon `LLM_GLOBAL_MODE: live` en `gitops/apps/llm-gateway/values.yaml`.
-2. Haz commit y push, y espera a que `main` termine.
-3. Sin `X-Demo-Token`, el tráfico sigue yendo a `fake-llm`. Compruébalo en el ensayo: la capa 5 depende de ello.
-4. Al terminar la defensa, devuélvelo a `simulated`.
+Si algo está roto a esa hora, no intentes recrearlo: un `up` completo no da tiempo. Usa el plan B.
 
-## El día de la presentación
+## Fase 1: despliegue (jueves por la noche)
 
-### Dos horas antes
+**1. Lanza el laboratorio.** En [Actions → lab](https://github.com/Andresm98/03-agentic-platform-swe/actions/workflows/lab.yml), pulsa **Run workflow**, con rama `main` y acción `up`.
+
+**2. Aprueba dos veces.** En la ejecución, **Review deployments** → `lab` → **Approve and deploy**, una vez para el plan y otra para el apply. El plan debe decir `59 to add, 0 to destroy`. Desde aquí corre el coste, unos 0,20 USD por hora.
+
+**3. Espera a que termine.** El resumen de la ejecución muestra la URL del NLB. Guárdala.
+
+**4. Prepara CloudShell.** En la [consola de AWS, en us-east-1](https://us-east-1.console.aws.amazon.com/console/home?region=us-east-1), abre CloudShell. Pega **primero esta línea sola**, porque `sudo` se come lo que venga detrás:
 
 ```bash
-git pull --rebase origin main
-gh workflow run lab.yml --ref main -f action=up    # aprueba el plan, revísalo y aprueba el apply
+sudo ln -sf "$(command -v python3)" /usr/local/bin/python
 ```
 
-Cuando termine, copia la URL del NLB del resumen de la ejecución y regístrala:
+Después, este bloque. Si la carpeta ya existe de una sesión anterior, omite el `git clone`:
 
 ```bash
-gh variable set NLB_URL --body "http://<dns-del-nlb>"
+git clone https://github.com/Andresm98/03-agentic-platform-swe.git
+cd 03-agentic-platform-swe
+git pull
+nohup bash infra/scripts/tunnel.sh </dev/null >/tmp/tunnel.log 2>&1 &
 ```
 
-### Treinta minutos antes
-
-Abre las terminales del túnel y de los `port-forward` ([uso en vivo, sección 2](../live-use.md#2-abrir-el-acceso)). Después, en la terminal de demos:
+Espera 20 segundos y pega:
 
 ```bash
-export KUBECONFIG=.lab/kubeconfig
-export NLB_URL="http://<dns-del-nlb>"
-export NO_COLOR=1
-make demo N=1
-kubectl -n argocd get applications
+export KUBECONFIG=.lab/kubeconfig NO_COLOR=1
+export NLB_URL="http://$(aws elbv2 describe-load-balancers --names agentic-platform-nlb --query 'LoadBalancers[0].DNSName' --output text)"
 kubectl get nodes
+kubectl -n argocd get applications
 ```
 
-Debe haber 20 aplicaciones `Synced` y `Healthy`, y la demo 1 en verde.
+**5. Espera a que todo esté sano.** Repite el último comando hasta ver **20 aplicaciones `Synced` y `Healthy`**. Puede tardar 30-45 minutos.
 
-Deja abiertas estas pestañas:
+**6. Compruébalo:**
+
+```bash
+make demo N=1
+```
+
+Debe terminar en `OK`. Si es así, el sistema está listo.
+
+**Importante:** CloudShell cierra la sesión tras 20-30 minutos sin actividad y corta el túnel. Si ocurre, repite el paso 4 sin el `git clone`, entrando antes en la carpeta con `cd 03-agentic-platform-swe`.
+
+## Fase 2: pestañas para la presentación
 
 | Pestaña | Vista |
 |---|---|
-| Argo CD | Lista de aplicaciones |
-| Dapr Dashboard | Applications |
-| Grafana | *Autoscaling* y *Aplicación (4 Golden Signals)* |
-| Grafana Explore | Loki, con `{namespace="apps"}` |
-| AWS EC2 | Instancias y Target Groups |
-| LangSmith | Proyecto `agentic-platform` |
+| CloudShell | Con el túnel activo |
 | GitHub | Actions |
+| AWS | EC2 → Instances, y Target Groups |
+| Grafana | [Dashboards](https://andresm98.grafana.net/dashboards), carpeta *Agentic Platform* |
+| Grafana Explore | Loki, con `{namespace="apps"}` |
+| Capturas | Argo CD y Dapr Dashboard |
 
-Lee el token de demo y déjalo solo en esa terminal:
+En Grafana, selecciona Loki `grafanacloud-andresm98-logs` y un rango de *Last 15 minutes*.
 
-```bash
-export DEMO_TOKEN=$(MSYS_NO_PATHCONV=1 aws ssm get-parameter --name /agentic-platform/k8s/demo-token --with-decryption --query Parameter.Value --output text)
-```
+## Fase 3: demostración (unos 35 minutos)
 
-## Desarrollo por capas
+Ejecuta todo en CloudShell, en la carpeta del repositorio.
 
 | Min. | Capa | Acción |
 |---|---|---|
 | 0 | Introducción | Problema y arquitectura |
-| 4 | 4. Elasticidad, arranque | **Lanzar la demo 7** y dejarla corriendo |
-| 5 | 1. Infraestructura | Terraform, red y acceso sin SSH |
-| 10 | 2. GitOps | Self-healing en vivo |
-| 15 | 3. Flota agéntica | Una tarea de principio a fin |
-| 21 | 4. Elasticidad, resultado | Mostrar el EC2 real |
-| 26 | 5. Resiliencia | Ataque |
-| 31 | 6. Control de gasto | Tarea con el modelo real |
-| 34 | 7. Observabilidad | Grafana y LangSmith |
-| 37 | 8. Ejercicios | Contenedor de un estudiante |
-| 39 | Cierre | Conclusiones y apagado |
+| 4 | Elasticidad | Lanzar el escalado y dejarlo corriendo |
+| 5 | Infraestructura | Terraform y acceso sin SSH |
+| 10 | GitOps | Self-healing |
+| 15 | Flota agéntica | Tarea de principio a fin |
+| 21 | Elasticidad | Mostrar el EC2 real |
+| 26 | Resiliencia | Ataque |
+| 30 | Observabilidad | Grafana |
+| 33 | Cierre | Conclusiones |
 
 ### Introducción
 
-**Mensaje:** una plataforma Kubernetes autogestionada, efímera y reproducible, que ejecuta una flota de agentes de IA. Cada llamada al modelo cuesta dinero, así que un ataque no puede convertirse en una factura.
+**Mensaje:** una plataforma Kubernetes autogestionada, efímera y reproducible, que ejecuta una flota de agentes de IA. Cada llamada al modelo cuesta dinero, así que un ataque no debe convertirse en una factura.
 
-**Muestra:** el [diagrama del README](../../README.md#arquitectura).
+Muestra el [diagrama del README](../../README.md#arquitectura). Di desde el principio que tiene **un único control plane y no es alta disponibilidad**: es una decisión consciente para un laboratorio de coste mínimo.
 
-**Di desde el principio:** tiene un único control plane y no es alta disponibilidad. Es una decisión consciente para un laboratorio de coste mínimo.
+### Elasticidad: lanzar
 
-### Elasticidad, arranque
-
-La bajada y subida de nodos lleva minutos, así que se lanza ahora y se vuelve a ella después. En la terminal de demos:
+Tarda varios minutos, así que empieza ahora y sigue con las demás capas:
 
 ```bash
 make demo N=7
 ```
 
-Crea pods de relleno que no caben en el worker. Continúa con las capas siguientes mientras tanto.
-
-### Capa 1: infraestructura
+### Capa: infraestructura
 
 **Mensaje:** todo se crea con Terraform desde GitHub Actions, con OIDC y sin claves de larga duración.
 
-**Muestra:**
+Muestra en GitHub la ejecución de `lab.yml` con sus aprobaciones, y en AWS las instancias y el NLB. Explica que no hay SSH: el acceso es por Systems Manager, justo lo que usa tu túnel.
 
-- GitHub Actions: la ejecución de `lab.yml`, con sus aprobaciones.
-- AWS: instancias, ASG y NLB.
-- Que no hay SSH: el acceso es por Systems Manager, como el túnel que estás usando.
-
-**Pregunta probable:** «¿Por qué K3s y no EKS?». Coste y control: EKS añade unos 73 USD al mes solo por el plano de control.
-
-### Capa 2: GitOps
+### Capa: GitOps
 
 **Mensaje:** Git es la fuente de verdad, y GitHub Actions nunca toca el cluster.
 
+Abre otra pestaña de CloudShell si la demo 7 sigue en marcha, y prepara la sesión con `cd 03-agentic-platform-swe` y los `export` de la Fase 1.
+
 ```bash
+kubectl -n argocd get applications
 make demo N=3
 ```
 
-**Muestra en Argo CD:** el pod borrado se recrea, y el cambio manual de réplicas se revierte solo. En el ensayo tardaron 7 segundos cada uno.
+La demo borra un pod y altera las réplicas a mano, y el sistema se corrige solo. Enseña la **captura de Argo CD** para ilustrar la interfaz.
 
-### Capa 3: flota agéntica
+### Capa: flota agéntica
 
-**Mensaje:** el modelo decide el flujo y Dapr Workflow lo hace durable.
+**Mensaje:** el modelo decide el flujo, y Dapr Workflow lo hace durable.
 
-Sigue los comandos de [uso en vivo, sección 5](../live-use.md#5-seguir-una-tarea-de-principio-a-fin). Envía la tarea y muestra:
+```bash
+kubectl -n apps get deploy
+TASK=$(curl -s -X POST "$NLB_URL/tasks" -H 'content-type: application/json' -d '{"goal":"Explica el autoscaling de la flota y su coste","complexity":2}')
+echo "$TASK" | jq .
+ID=$(echo "$TASK" | jq -r .task_id); echo "$ID"
+```
 
-- El `202` inmediato con su `task_id`.
-- `researcher` y `analyst` arrancando **desde cero réplicas** con KEDA.
-- `steps` con los tres agentes y el `pod` que atendió cada uno.
-- La tarea en Grafana, filtrando por su `task_id` en Loki.
+Repite este comando hasta ver `completed`, que tardó 23 segundos en la prueba:
 
-### Elasticidad, resultado
+```bash
+curl -s "$NLB_URL/tasks/$ID" | jq '{status, mode, degraded, summary, steps: [.steps[]? | {agent, status, pod}]}'
+```
 
-**Mensaje:** el escalado funciona en dos niveles: pods y máquinas.
+Muestra los tres agentes y el `pod` que atendió cada uno. Después, busca la tarea en Grafana Explore → Loki, sustituyendo el identificador:
 
-**Muestra**, cuando la demo 7 haya terminado:
+```
+{namespace="apps"} |= "<task_id>"
+```
+
+### Elasticidad: resultado
+
+**Mensaje:** escala en dos niveles: pods y máquinas, con un máximo explícito de 3 EC2 para controlar el coste.
+
+Cuando termine la demo 7:
 
 ```bash
 make demo N=8
@@ -163,75 +199,92 @@ make demo N=9
 kubectl get nodes
 ```
 
-Enseña en AWS el nuevo EC2, y en el NLB, los 2 destinos `healthy`. La bajada tarda unos 10 minutos y puedes mostrarla al final con `make demo N=11`.
+Muestra en AWS el nuevo EC2 y los 2 destinos `healthy`, y en Grafana el dashboard *Autoscaling*.
 
-**Di:** el máximo son 3 EC2, y es un límite explícito para controlar el coste.
-
-### Capa 5: resiliencia
+### Capa: resiliencia
 
 **Mensaje:** ante un ataque, la plataforma rechaza tráfico en lugar de gastar dinero o caerse.
 
 ```bash
-make demo N=13
+seq 1 300 | xargs -P 40 -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST "$NLB_URL/tasks" -H 'content-type: application/json' -H 'X-Demo-Token: token-falso' -d '{"goal":"ataque","complexity":1}' | sort | uniq -c
 ```
 
-Genera ráfagas, cargas grandes y un `X-Demo-Token` falso. Muestra los `429` y el resultado clave: **0 tokens reales**.
-
-Si sobra tiempo, `DURATION=1m make demo N=14` inyecta fallos en el modelo y borra orquestadores. Tarda unos 4 minutos más.
-
-### Capa 6: control de gasto y modelo real
-
-**Mensaje:** el modelo real existe, pero detrás de tres barreras.
+Debes ver `429` junto a algunos `202`. Después, confirma que no se gastó nada:
 
 ```bash
-CONFIRM_LIVE=yes make demo N=15
+kubectl -n apps port-forward svc/llm-gateway 18002:8000 >/dev/null 2>&1 &
+sleep 3
+curl -s http://localhost:18002/metrics | grep '^llm_tokens_total' | grep -c 'mode="live"'
+kill %%
 ```
 
-Muestra la tarea en LangSmith y el presupuesto restante, y explica las barreras: token de admisión, 3 USD en el gateway y 5 USD en OpenAI. Una sola tarea cuesta céntimos.
+El resultado debe ser `0`: el token falso nunca llega al modelo real.
 
-### Capa 7: observabilidad
+**No lances cargas largas.** Una rampa de 8 minutos saturó el cluster en la prueba.
 
-**Mensaje:** se ve todo el sistema en un solo lugar, por las 4 Golden Signals.
+### Capa: observabilidad
 
-**Muestra:** *Aplicación (4 Golden Signals)* durante el ataque, *Autoscaling* con el pico de réplicas, y *Agentes y LLM* con el presupuesto.
+**Mensaje:** todo el sistema se ve en un solo lugar, por las 4 Golden Signals.
 
-### Capa 8: ejercicios de estudiantes
+Muestra *Aplicación (4 Golden Signals)* y *Agentes y LLM*. Enseña la **captura de Dapr Dashboard**.
 
-**Mensaje:** cualquier estudiante publica su contenedor con un Pull Request, y la plataforma lo despliega con sus controles.
-
-**Muestra:** el PR hacia `stage` y el contenedor en `$NLB_URL/s/<nombre>/`. Prepáralo antes de la presentación: es un flujo de varios minutos.
+LangSmith registra el 100 % de las llamadas reales, pero solo el 1 % de las simuladas. En modo simulado es normal verlo casi vacío.
 
 ### Cierre
 
-Resume qué se demostró y qué decisiones se tomaron. Después, apaga delante del público si hay tiempo:
+**Mensaje final:** todo se destruye y cualquiera puede recrearlo desde Git. Coste total del proyecto: unos 3-5 USD (estimado).
 
-```bash
-gh workflow run lab.yml --ref main -f action=down
-```
+## Fase 4: apagar
 
-**Mensaje final:** todo se destruye, y cualquiera puede recrearlo desde Git. El coste total del proyecto se mantiene en unos 3-5 USD.
+Hazlo al terminar, sin esperar a nadie.
+
+1. En [Actions → lab](https://github.com/Andresm98/03-agentic-platform-swe/actions/workflows/lab.yml), pulsa **Run workflow**, con rama `main` y acción `down`.
+2. Aprueba dos veces. El plan debe decir `0 to add, 59 to destroy`.
+3. Comprueba que la ejecución termine en verde, incluido `cost-check`.
+4. Comprueba en AWS que EC2 no tiene instancias en ejecución.
+
+5. Devuelve `LAB_TTL_HOURS` a `6` en las variables de GitHub.
+
+`lab-reaper` destruye el laboratorio al superar `LAB_TTL_HOURS`, pero nunca se ha visto actuar: no dependas de él.
 
 ## Plan B
 
 | Si falla | Haz esto |
 |---|---|
-| El despliegue no termina a tiempo | Presenta con las capturas y las salidas del ensayo |
-| Se corta el túnel | Relánzalo y repite el `port-forward`; sigue mostrando Grafana y AWS mientras tanto |
+| El `apply` falla | Lee el error y relanza `up`, con sus dos aprobaciones |
+| Las aplicaciones no llegan a `Healthy` a tiempo | Presenta con capturas y explica la arquitectura |
+| Se corta CloudShell | Repite el paso 4; sigue con Grafana y AWS mientras tanto |
 | El EC2 tarda demasiado | Continúa y vuelve a él antes de cerrar |
-| La API responde `503` tras la carga | Explica que es la plataforma rechazando trabajo; pasa a Grafana y sigue |
-| El modelo real falla | Enseña la degradación a `fake-llm`: es parte del diseño |
-| Falla Grafana | Muestra el mismo dato con `kubectl` |
+| `make demo` falla | Ejecuta el comando equivalente de `kubectl` y sigue |
+| La API responde `503` | Explica que la plataforma rechaza trabajo al saturarse; pasa a Grafana |
+
+## Preguntas probables
+
+| Pregunta | Respuesta |
+|---|---|
+| ¿Por qué no se ve Argo CD en vivo? | Las consolas administrativas nunca se exponen a Internet. Se usan por túnel |
+| ¿Por qué K3s y no EKS? | Coste y control: EKS añade unos 73 USD al mes solo por el plano de control |
+| ¿Qué pasa si cae el control plane? | Se pierde el cluster y se recrea desde Git. No es alta disponibilidad |
+| ¿Qué impide gastar el presupuesto? | Token de admisión, 3 USD en el gateway y 5 USD en OpenAI |
 
 ## Lo que no debes afirmar
 
-- Que es alta disponibilidad.
+- Que es alta disponibilidad o un diseño de producción.
 - Que escala sin límite: el máximo son 3 EC2.
-- Que es un diseño de producción: es un laboratorio efímero, sin TLS en el NLB.
+- Que el modelo real está probado, salvo que lo pruebes antes.
 - Cifras de coste como reales: son estimaciones hasta ver la factura.
-- Que una prueba de carga mide la calidad del modelo: usa `fake-llm`.
 
-## Después de la presentación
+## Modo opcional: modelo real
 
-1. Comprueba que `lab.yml down` y `cost-check` terminaron bien.
-2. Devuelve `LLM_GLOBAL_MODE` a `simulated`.
-3. Revoca los tokens según la [guía de configuración](../SETUP.md#13-apagar-y-revocar).
+Hazlo solo si lo ensayaste antes. Gasta dinero real, con un tope de 3 USD.
+
+1. **Antes del `up`**, en el editor web de GitHub, cambia `LLM_GLOBAL_MODE` a `live` en `gitops/apps/llm-gateway/values.yaml`, y espera a que termine `main`.
+2. Lee el token y ejecuta la demo en CloudShell:
+
+   ```bash
+   export DEMO_TOKEN=$(aws ssm get-parameter --name /agentic-platform/k8s/demo-token --with-decryption --query Parameter.Value --output text)
+   CONFIRM_LIVE=yes make demo N=15
+   ```
+
+3. Muestra la llamada en LangSmith, proyecto `agentic-platform`.
+4. Al terminar, vuelve a `simulated`.

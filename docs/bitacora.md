@@ -25,7 +25,7 @@ Registro de lo ejecutado durante el despliegue del laboratorio, en orden. Solo i
 
 | Área | Situación actual |
 |---|---|
-| Laboratorio en AWS | Encendido desde las 21:36 UTC: control plane, 1 worker y NLB con destino `healthy`. `lab-reaper` lo destruye a las 6 horas |
+| Laboratorio en AWS | Destruido el 2026-11-08 con `lab.yml down`; `cost-check` sin recursos facturables. Se recrea con `lab.yml up` |
 | Parámetros SSM | 12, todos `SecureString` |
 | Capa persistente | Creada y sin diferencias con Terraform |
 | `origin/main` | `730996a`, con los 6 servicios promovidos correctamente |
