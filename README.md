@@ -36,7 +36,7 @@ Actualizado el 2026-11-09. **La plataforma se desplegó en AWS desde cero, sin p
 | Escritorio remoto `ui-desktop` | ✅ Probado | VM creada por su pipeline; Argo CD y el ejercicio de prueba visibles desde ella |
 | Operación solo con navegador | ✅ Probado | Despliegue por GitHub Actions y comandos desde AWS CloudShell |
 
-Sin validar: el perfil local k3d, un PR de ejercicio desde un fork, las trazas distribuidas en Tempo y la degradación al agotar el presupuesto.
+Sin validar: el perfil local k3d, las trazas distribuidas en Tempo y la degradación al agotar el presupuesto.
 
 ## Arquitectura
 
@@ -270,11 +270,11 @@ Cada escenario es un script con comprobaciones automáticas: `make demo N=<n>`. 
 | 7 | Cluster Autoscaler | `TriggeredScaleUp` y `DesiredCapacity=2` | ✅ |
 | 8 | Join de K3s | Nodo `Ready` con `providerID` válido | ✅ |
 | 9 | Registro en el NLB | Destinos `healthy` | ✅ |
-| 10 | Distribución | Reparto por pod | ⚠️ Falló con el cluster saturado; sin repetir |
-| 11 | Scale-down | Instancia terminada y target eliminado | ⚠️ Observado sin carga; script sin ejecutar |
-| 12 | Grafana | Series recientes en la API | ⏳ Comprobado a mano en los dashboards |
-| 13 | Ataque | `429`, ASG ≤ 2 y 0 tokens reales | ⚠️ Ráfaga manual con `429`; script sin ejecutar |
-| 14 | Caos del LLM | Circuito abierto y ninguna tarea perdida | ⏳ Sin ejecutar |
+| 10 | Distribución | Reparto por pod | ⚠️ Falló con el cluster saturado; causa corregida, sin repetir |
+| 11 | Scale-down | Instancia terminada y target eliminado | ✅ Bajada automática de 2 a 1 en unos 9 min; observada sin el script |
+| 12 | Grafana | Series recientes en la API | ✅ Los 6 dashboards revisados a mano; sin el script |
+| 13 | Ataque | `429`, ASG ≤ 2 y 0 tokens reales | ✅ Ráfaga manual: 184 aceptadas y 116 con `429`; sin el script |
+| 14 | Chaos Engineering | Circuito abierto y ninguna tarea perdida | ➖ Fuera de alcance; evolución futura de caja negra con LitmusChaos o Chaos Mesh |
 | 15 | Modelo real | Tokens reales con token de demo | ✅ |
 
 ## Costes
@@ -288,7 +288,7 @@ Estimación con precios on-demand de `us-east-1`. Aún no se ha contrastado con 
 | Una noche encendido, 14 h | ~2,50 USD |
 | Capa persistente | < 0,05 USD/mes |
 | GitHub Actions, GHCR y Grafana Cloud | 0, en planes gratuitos |
-| Carga, ataque y caos con `fake-llm` | 0 |
+| Carga y ataque con `fake-llm` | 0 |
 | Modelo real, con el endpoint gratuito de NVIDIA | 0 |
 
 Nada de lo que corre en el cluster crea recursos de AWS: sin volúmenes EBS dinámicos, NAT ni Elastic IP.

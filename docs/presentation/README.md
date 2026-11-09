@@ -26,13 +26,12 @@ No hace falta configurar de nuevo ningún token: están guardados en AWS y cada 
 
 ## Qué está comprobado
 
-Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manual; despliegue por GitOps; self-healing; una tarea completa por el NLB; KEDA escalando desde cero; un EC2 real unido por autoscaling; 2 destinos `healthy`; métricas y logs en Grafana; terminal por CloudShell; un ejercicio de estudiante publicado y accesible en `/s/prueba/`; modelo real de NVIDIA con trazas en LangSmith; y la ráfaga de la capa de resiliencia, con respuestas `429`.
+Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manual; despliegue por GitOps; self-healing; una tarea completa por el NLB; KEDA escalando desde cero; un EC2 real unido por autoscaling; 2 destinos `healthy`; métricas y logs en Grafana; terminal por CloudShell; un ejercicio de estudiante publicado y accesible en `/s/prueba/`; Argo CD, Dapr Dashboard y el ejercicio desde el escritorio remoto; bajada automática de 2 a 1 workers; modelo real de NVIDIA con trazas en LangSmith; y la ráfaga de la capa de resiliencia, con respuestas `429`.
 
 | Sin comprobar | Consecuencia |
 |---|---|
-| Acceso a Dapr Dashboard desde el escritorio | Compruébalo el jueves; Argo CD y el ejercicio de estudiante ya se vieron desde él |
-| Trazas distribuidas en Tempo | No las muestres sin revisarlas antes |
-| PR de un ejercicio desde un fork | Probado solo desde una rama del repositorio |
+| Trazas distribuidas en Tempo | No las muestres sin revisarlas antes: Grafana → Explore → Tempo, servicio `orchestrator` |
+| Escenario 10, reparto entre réplicas | Falló con el cluster saturado y la causa se corrigió. Repite `make demo N=10` el jueves |
 
 ## Antes del viernes, desde la laptop
 
