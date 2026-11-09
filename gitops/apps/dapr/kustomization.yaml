@@ -12,4 +12,4 @@ resources:
 # La imagen del Job (llm-gateway) la promociona _gitops-promote.yml.
 images:
   - name: ghcr.io/andresm98/agentic-platform/llm-gateway
-    newTag: 68e1fe5e381d436fcedbe493aea87807fd5871b6
+    newTag: 0f0251e4f7df8693498ae8b1f226bdf28e98a6c2
