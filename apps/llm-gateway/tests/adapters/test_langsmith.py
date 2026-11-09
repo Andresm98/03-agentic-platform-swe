@@ -136,3 +136,25 @@ def test_otlp_headers_agent_workspace_excludes_project() -> None:
         "Langsmith-Agent-Id": "agentic-platform",
         "Langsmith-Agent-Environment": "production",
     }
+
+
+def test_span_is_root_even_inside_a_traced_request() -> None:
+    """LangSmith descarta los spans cuyo padre nunca recibe: el padre de la petición vive en Tempo."""
+    from opentelemetry.sdk.trace import TracerProvider
+
+    exporter = InMemorySpanExporter()
+    telemetry = LangSmithTelemetry(
+        endpoint="http://x",
+        api_key="k",
+        project="p",
+        on_error=lambda: None,
+        on_success=lambda _: None,
+        exporter=exporter,
+    )
+    with TracerProvider().get_tracer("request").start_as_current_span("http.request"):
+        telemetry.record(RECORD)
+    telemetry.shutdown()
+
+    spans = exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].parent is None

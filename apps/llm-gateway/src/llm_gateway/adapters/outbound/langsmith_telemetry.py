@@ -20,6 +20,7 @@ import logging
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from opentelemetry.context import Context
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -130,8 +131,13 @@ class LangSmithTelemetry:
 
     def record(self, call: LLMCallRecord) -> None:
         try:
+            # Contexto vacío: el padre de la petición vive en Tempo, y LangSmith descarta los spans
+            # cuyo padre nunca recibe (responde 200 igualmente, así que no hay error visible).
             span = self._tracer.start_span(
-                f"llm.{call.agent}", start_time=int(call.start_s * 1e9), attributes=span_attributes(call)
+                f"llm.{call.agent}",
+                context=Context(),
+                start_time=int(call.start_s * 1e9),
+                attributes=span_attributes(call),
             )
             span.end(end_time=int(call.end_s * 1e9))
         except Exception:  # fail-open

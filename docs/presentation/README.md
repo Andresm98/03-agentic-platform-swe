@@ -111,31 +111,84 @@ Argo CD y Dapr nunca se exponen a Internet. Se abren desde un escritorio Windows
 **Ejecuta siempre primero `lab` y después `ui-desktop`.** Relanzar `lab.yml up` con el escritorio activo lo eliminaría.
 
 1. En [Actions → ui-desktop](https://github.com/Andresm98/03-agentic-platform-swe/actions/workflows/ui-desktop.yml), pulsa **Run workflow**, con rama `main` y acción `up`. Aprueba una vez.
-2. Espera unos 10 minutos a que Windows arranque.
+2. Espera unos 10 minutos a que Windows arranque. Está lista cuando este comando responde `Online`:
+
+   ```bash
+   aws ssm describe-instance-information --filters Key=tag:Name,Values=agentic-platform-ui-desktop --query 'InstanceInformationList[].PingStatus' --output text
+   ```
+
 3. En CloudShell, obtén la contraseña:
 
    ```bash
    aws ssm get-parameter --name /agentic-platform/cluster/ui-desktop-password --with-decryption --query Parameter.Value --output text
    ```
 
-4. En AWS, ve a **Systems Manager → Fleet Manager**, selecciona la VM `agentic-platform-ui-desktop` y pulsa **Node actions → Connect → Connect with Remote Desktop**.
-5. Entra con el usuario `Administrator` y esa contraseña.
+   Si responde `pending-bootstrap`, Windows aún no ha terminado: espera unos minutos y repítelo.
+
+4. En AWS, ve a [Systems Manager → Fleet Manager](https://us-east-1.console.aws.amazon.com/systems-manager/fleet-manager/managed-nodes?region=us-east-1), selecciona la VM `agentic-platform-ui-desktop` y pulsa **Node actions → Connect → Connect with Remote Desktop**.
+5. Elige la autenticación por usuario y contraseña, con el usuario `Administrator` y la contraseña del paso 3.
 6. Usa los accesos del escritorio:
 
    | Acceso | Qué abre |
    |---|---|
    | **Argo CD** | Estado y sincronización de cada aplicación |
    | **Dapr Dashboard** | Apps, componentes y configuración de la flota |
-   | **Ejercicios** | Una página con el enlace de cada ejercicio publicado |
+   | **Ejercicios** | Una página con el enlace de cada ejercicio publicado; `prueba` abre su JSON de bienvenida |
    | **Actualizar ejercicios** | Regenera esa página si se ha publicado uno nuevo |
 
-   El usuario de Argo CD es `admin`. Su contraseña inicial se obtiene en CloudShell:
+   El usuario de Argo CD es `admin`. Su contraseña inicial se obtiene en CloudShell, con el túnel abierto. Si ves `localhost:8080: connection refused`, falta la variable o el túnel:
 
    ```bash
+   cd ~/03-agentic-platform-swe
+   pkill -f session-manager-plugin; pkill -f tunnel.sh
+   nohup bash infra/scripts/tunnel.sh </dev/null >/tmp/tunnel.log 2>&1 &
+   sleep 20
+   export KUBECONFIG=.lab/kubeconfig
    kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
    ```
 
 La conexión se corta tras 10 minutos sin actividad y a los 60 minutos, y se puede renovar. Terraform destruye esta VM junto con el laboratorio en `lab.yml down`.
+
+## Comprobación previa: trazas y escritorio
+
+Hazla con el laboratorio encendido, después de la Fase 1, antes de dar nada por listo.
+
+### Trazas de LangSmith
+
+En CloudShell, ya con el túnel abierto:
+
+```bash
+cd ~/03-agentic-platform-swe && git pull
+export KUBECONFIG=.lab/kubeconfig NO_COLOR=1
+export NLB_URL="http://$(aws elbv2 describe-load-balancers --names agentic-platform-nlb --query 'LoadBalancers[0].DNSName' --output text)"
+export DEMO_TOKEN=$(aws ssm get-parameter --name /agentic-platform/k8s/demo-token --with-decryption --query Parameter.Value --output text)
+CONFIRM_LIVE=yes make demo N=15
+```
+
+| Comprobación | Resultado correcto |
+|---|---|
+| Salida de la demo | Termina en `OK` |
+| [LangSmith](https://smith.langchain.com) → `agentic-platform` → **Tracing** → **Production**, tras 2 minutos | Llamadas `llm.orchestrator`, `llm.researcher` y `llm.executor` |
+
+Si no aparecen trazas, la demo sigue siendo válida. Omite LangSmith en la presentación y muestra el dashboard *Agentes y LLM*.
+
+### Escritorio
+
+Contraseña de `Administrator` para conectarte, en CloudShell:
+
+```bash
+aws ssm get-parameter --name /agentic-platform/cluster/ui-desktop-password --with-decryption --query Parameter.Value --output text
+```
+
+Sigue [Abrir las interfaces](#abrir-las-interfaces-argo-cd-dapr-y-ejercicios) y comprueba:
+
+| Acceso | Resultado correcto |
+|---|---|
+| Argo CD | Pide login y muestra las aplicaciones |
+| Dapr Dashboard | Muestra la lista de aplicaciones |
+| Ejercicios | Muestra el enlace `prueba`, que responde |
+
+Haz en ese momento las **capturas de Argo CD y Dapr Dashboard**: son el plan B de la presentación.
 
 ## Fase 2: pestañas para la presentación
 
@@ -302,7 +355,7 @@ Hazlo al terminar, sin esperar a nadie.
 | El `apply` falla | Lee el error y relanza `up`, con sus dos aprobaciones |
 | Las aplicaciones no llegan a `Healthy` a tiempo | Presenta con capturas y explica la arquitectura |
 | El escritorio remoto no abre | Muestra las capturas de Argo CD y Dapr, y su estado con `kubectl` |
-| Se corta CloudShell | Repite el paso 4; sigue con Grafana y AWS mientras tanto |
+| Se corta CloudShell o aparece `127.0.0.1:6443: connection refused` | Repite el paso 4; sigue con Grafana y AWS mientras tanto |
 | El EC2 tarda demasiado | Continúa y vuelve a él antes de cerrar |
 | `make demo` falla | Ejecuta el comando equivalente de `kubectl` y sigue |
 | La API responde `503` | Explica que la plataforma rechaza trabajo al saturarse; pasa a Grafana |
@@ -334,5 +387,14 @@ Hazlo al terminar, sin esperar a nadie.
    CONFIRM_LIVE=yes make demo N=15
    ```
 
-3. Muestra la llamada en LangSmith, proyecto `agentic-platform`.
+3. Muestra la llamada en [LangSmith](https://smith.langchain.com): entra en `agentic-platform`, abre **Tracing** con el entorno **Production** y recarga. Cada llamada aparece como `llm.orchestrator`, `llm.researcher` o `llm.executor`. Puede tardar un par de minutos, porque LangSmith procesa las trazas en segundo plano.
 4. Después de la defensa, vuelve a `simulated` y revoca la clave de OpenAI.
+
+
+***Notas***: cambios breves.
+   ```bash
+git add -A
+git commit -m "name"
+git pull --rebase origin main
+git push origin main
+   ```
