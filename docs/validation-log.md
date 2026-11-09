@@ -112,6 +112,13 @@ Sin probar: `exercises.yml` en GitHub Actions (no hay actionlint local), Applica
 | Demo 8 | OK: 5 asserts, nodo nuevo `Ready` con `providerID` válido |
 | Demo 9 | OK: 3 asserts, 2 destinos `healthy` |
 
+## Confirmaciones del operador (2026-11-09)
+
+| Comprobación | Resultado |
+|---|---|
+| Dapr Dashboard abierto desde el escritorio remoto | OK, según el operador; sin captura en este registro |
+| 6 dashboards de Grafana con datos | OK, revisados a mano; `make demo N=12` sin ejecutar |
+
 ## Modelo real (2026-11-09)
 
 | Comprobación | Resultado |
