@@ -83,6 +83,22 @@ module "nlb" {
   asg_name           = module.workers.asg_name
 }
 
+# Opcional: lo activa ui-desktop.yml. Vive en este estado para que `lab.yml down` y lab-reaper
+# también lo destruyan; una VM suelta en la VPC bloquearía el borrado de la subred.
+module "ui_desktop" {
+  source = "../../modules/ui-desktop"
+  count  = var.enable_ui_desktop ? 1 : 0
+
+  cluster_name                    = var.cluster_name
+  vpc_id                          = module.network.vpc_id
+  subnet_id                       = module.network.control_plane_subnet_id
+  control_plane_security_group_id = module.network.control_plane_security_group_id
+  control_plane_ip                = local.control_plane_ip
+  permissions_boundary_arn        = var.permissions_boundary_arn
+  password_parameter_name         = "/agentic-platform/cluster/ui-desktop-password"
+  tags                            = local.common_tags
+}
+
 module "observability_aws" {
   source = "../../modules/observability-aws"
   count  = var.grafana_cloud_aws_account_id != "" && var.grafana_cloudwatch_external_id != "" ? 1 : 0

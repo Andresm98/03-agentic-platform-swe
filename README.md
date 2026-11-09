@@ -24,13 +24,13 @@ Actualizado el 2026-11-08. **El laboratorio ya funciona en AWS y atiende tareas 
 | Pipeline `main` en GitHub Actions | ✅ Probado | CI, escaneo IaC, 6 imágenes y promoción GitOps |
 | Capa persistente de AWS | ✅ Desplegada | Terraform sin diferencias |
 | Mirror de imágenes de plataforma | ✅ Probado | 6 imágenes copiadas con su digest y descargables sin login |
-| Cluster local en k3d y pruebas k6 | ⏳ Sin probar | Los escenarios de demo aún no se han ejecutado |
+| Pruebas de carga con k6 | ✅ Probado | En AWS: 4200 peticiones, 0 % de errores HTTP y 0 tokens reales; detectaron y ayudaron a corregir un límite de capacidad |
 | `lab.yml up`: EC2, K3s y Argo CD | ✅ Probado | Nodos `Ready` y aplicaciones sincronizadas por GitOps |
 | Tarea completa por el NLB | ✅ Probado | Orquestador y 3 agentes en 23 s, con KEDA escalando desde cero |
-| Autoscaling de nodos | ⏳ Sin probar | Exige ver un EC2 real unirse al cluster |
-| Telemetría en Grafana Cloud | ⚠️ Parcial | Métricas confirmadas; faltan logs y trazas |
+| Autoscaling de nodos | ✅ Probado | Bajo carga real, el ASG subió de 1 a 2, el EC2 se unió como `Ready` y el NLB tuvo 2 destinos `healthy` |
+| Telemetría en Grafana Cloud | ✅ Probado | Dashboards con datos de la arquitectura y logs por `task_id` en Loki |
 | Modelo real de OpenAI y LangSmith | ⏳ Sin probar | |
-| Flujo de ejercicios en la rama `stage` | ⏳ Sin probar | Probado solo por partes |
+| Flujo de ejercicios en la rama `stage` | ✅ Probado | De PR a despliegue por Argo CD, respondiendo en `/s/prueba/` |
 
 ## Arquitectura
 
@@ -205,7 +205,7 @@ make test
 make compose-down
 ```
 
-`make local-up` crea además un cluster k3d con Argo CD, aunque ese perfil **aún no se ha probado**.
+`make local-up` crea además un cluster k3d con Argo CD. Ese perfil **no se ha validado**: la plataforma completa supera los recursos de un equipo de escritorio, así que se validó directamente en AWS.
 
 ### En AWS
 
@@ -224,7 +224,7 @@ Git y Bash, GNU `make`, Docker, `kubectl`, Helm 4, k3d, Terraform ≥ 1.11, AWS 
 
 ## Escenarios de demo
 
-Cada escenario es un script con comprobaciones automáticas: `make demo N=<n>`. **Ninguno se ha ejecutado todavía contra un cluster.** La columna *Local* indica dónde podrá correr.
+Cada escenario es un script con comprobaciones automáticas: `make demo N=<n>`. En AWS pasaron los escenarios 1 a 6, 8 y 9; el escalado del 7 se comprobó a mano. Los resultados están en el [registro de validación](docs/validation-log.md). La columna *Local* indica para qué perfil se diseñó cada uno.
 
 | # | Escenario | Qué comprueba | Local |
 |---|---|---|---|
@@ -281,6 +281,9 @@ La justificación completa está en los [ADRs](docs/adrs/).
 - Las pruebas de carga usan `fake-llm`: validan la plataforma, no la calidad del modelo.
 - Sonar analiza solo `apps/`; la infraestructura se revisa con Checkov, tflint y shellcheck.
 - La URL del NLB cambia en cada despliegue.
+- El perfil local k3d no se validó, por falta de recursos en un equipo de escritorio. La validación se hizo en AWS.
+- La bajada automática de nodos (scale-down) no se comprobó; el laboratorio se destruye al terminar cada sesión.
+- La capacidad máxima es de 2 workers: una carga sostenida puede saturarlos y la API responde `503` hasta recuperarse.
 
 ## Estructura del repositorio
 

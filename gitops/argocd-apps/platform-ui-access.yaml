@@ -1,0 +1,27 @@
+# Accesos internos a Argo CD y Dapr Dashboard para el escritorio de ui-desktop.yml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-ui-access
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+  labels:
+    app.kubernetes.io/part-of: agentic-platform
+    agentic.io/layer: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
+    targetRevision: main
+    path: gitops/platform/ui-access
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

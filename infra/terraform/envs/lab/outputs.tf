@@ -1,3 +1,8 @@
+output "ui_desktop_instance_id" {
+  description = "VM del escritorio de interfaces (vacío si no se creó)."
+  value       = try(module.ui_desktop[0].instance_id, "")
+}
+
 output "nlb_dns_name" {
   description = "URL pública de la demo: http://<nlb_dns_name>/"
   value       = module.nlb.dns_name

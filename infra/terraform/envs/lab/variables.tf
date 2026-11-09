@@ -53,6 +53,12 @@ variable "worker_instance_type" {
   default     = "t3.medium"
 }
 
+variable "enable_ui_desktop" {
+  description = "Crea el escritorio Windows para abrir Argo CD y Dapr Dashboard. Lo activa ui-desktop.yml."
+  type        = bool
+  default     = false
+}
+
 variable "grafana_cloud_aws_account_id" {
   description = "Cuenta AWS de Grafana Cloud para el datasource CloudWatch. Vacío = no se crea el rol."
   type        = string

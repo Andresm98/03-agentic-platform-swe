@@ -5,7 +5,7 @@ image:
 replicaCount: 2
 env:
   # Interruptor global en Git: simulated hasta la Fase H (ADR-0002 §6).
-  LLM_GLOBAL_MODE: simulated
+  LLM_GLOBAL_MODE: live
   FAKE_LLM_URL: http://fake-llm.apps.svc.cluster.local:8000/v1
   NATS_URL: nats://nats.nats.svc.cluster.local:4222
   NATS_USER: llm-gateway

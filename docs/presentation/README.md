@@ -6,20 +6,20 @@ Guía para presentar la plataforma el viernes 13 de noviembre de 2026 **solo con
 
 ## Qué está comprobado
 
-Comprobado el 8 de noviembre en AWS: despliegue por GitOps, self-healing, una tarea completa por el NLB, KEDA escalando desde cero, un EC2 real unido por autoscaling, 2 destinos `healthy`, métricas y logs en Grafana, y terminal por CloudShell.
+Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manual; despliegue por GitOps; self-healing; una tarea completa por el NLB; KEDA escalando desde cero; un EC2 real unido por autoscaling; 2 destinos `healthy`; métricas y logs en Grafana; terminal por CloudShell, y un ejercicio de estudiante publicado y accesible en `/s/prueba/`.
 
 | Sin comprobar | Consecuencia |
 |---|---|
-| `lab.yml up` desde cero con las correcciones de ese día | Lanza con margen: 2 horas antes |
+| Escritorio `ui-desktop` y sus accesos | Comprueba que abre antes de la presentación; las capturas son el plan B |
 | Demos con k6 desde CloudShell | La capa de ataque tiene una alternativa sin k6 |
 | Modelo real y LangSmith | Opcional, al final |
-| Ejercicio `prueba` desplegado en el cluster | Ya está publicado; comprueba `$NLB_URL/s/prueba/` en el próximo `up` antes de mostrarlo |
+| PR de un ejercicio desde un fork | Probado solo desde una rama del repositorio |
 
 ## Antes del viernes, desde la laptop
 
 1. Entra en las cuatro webs: GitHub, AWS, Grafana y LangSmith. Comprueba también el MFA.
 2. Abre CloudShell en `us-east-1` y confirma que funciona.
-3. Guarda en un lugar accesible las **capturas de Argo CD y Dapr Dashboard**. Esas interfaces no se pueden abrir desde la laptop.
+3. Guarda en un lugar accesible **capturas de Argo CD y Dapr Dashboard**, como plan B si el escritorio remoto falla.
 4. Si puedes, ejecuta `up` y `down` una vez como ensayo. Cuesta menos de 1 USD.
 
 No hagas cambios en `main` esa semana, ni fusiones los PR de Dependabot.
@@ -46,7 +46,8 @@ El laboratorio se levanta el jueves y queda encendido hasta la presentación. En
 2. Registra la URL del NLB: en *Variables*, crea o actualiza `NLB_URL` con el valor del resumen de la ejecución.
 3. En Grafana, confirma que el dashboard *Kubernetes* muestra datos y que Loki devuelve líneas para `{namespace="apps"}`.
 4. En CloudShell, envía una tarea, como en la capa de flota agéntica, y comprueba que llega a `completed`.
-5. Deja el laboratorio encendido y cierra CloudShell. **No lances pruebas de carga esa noche.**
+5. Levanta el escritorio con **`ui-desktop`** y comprueba que abre Argo CD, Dapr Dashboard y *Ejercicios* (ver [Abrir las interfaces](#abrir-las-interfaces-argo-cd-dapr-y-ejercicios)).
+6. Deja el laboratorio encendido y cierra CloudShell. **No lances pruebas de carga esa noche.**
 
 ### Viernes por la mañana
 
@@ -54,7 +55,8 @@ CloudShell habrá cerrado la sesión. Treinta minutos antes de empezar:
 
 1. Abre CloudShell y repite el **paso 4** de la Fase 1, omitiendo el `git clone` si la carpeta sigue ahí.
 2. Ejecuta `kubectl -n argocd get applications` y `make demo N=1`.
-3. Abre las pestañas de la Fase 2.
+3. Conéctate al escritorio con Fleet Manager y abre sus accesos.
+4. Abre las pestañas de la Fase 2.
 
 Si algo está roto a esa hora, no intentes recrearlo: un `up` completo no da tiempo. Usa el plan B.
 
@@ -102,6 +104,39 @@ Debe terminar en `OK`. Si es así, el sistema está listo.
 
 **Importante:** CloudShell cierra la sesión tras 20-30 minutos sin actividad y corta el túnel. Si ocurre, repite el paso 4 sin el `git clone`, entrando antes en la carpeta con `cd 03-agentic-platform-swe`.
 
+## Abrir las interfaces: Argo CD, Dapr y ejercicios
+
+Argo CD y Dapr nunca se exponen a Internet. Se abren desde un escritorio Windows dentro de la VPC, en el navegador, con Fleet Manager. No necesitas `port-forward` ni túnel: la VM llega directamente a las interfaces y trae sus accesos en el escritorio. Cuesta unos céntimos por hora y requiere el laboratorio encendido.
+
+**Ejecuta siempre primero `lab` y después `ui-desktop`.** Relanzar `lab.yml up` con el escritorio activo lo eliminaría.
+
+1. En [Actions → ui-desktop](https://github.com/Andresm98/03-agentic-platform-swe/actions/workflows/ui-desktop.yml), pulsa **Run workflow**, con rama `main` y acción `up`. Aprueba una vez.
+2. Espera unos 10 minutos a que Windows arranque.
+3. En CloudShell, obtén la contraseña:
+
+   ```bash
+   aws ssm get-parameter --name /agentic-platform/cluster/ui-desktop-password --with-decryption --query Parameter.Value --output text
+   ```
+
+4. En AWS, ve a **Systems Manager → Fleet Manager**, selecciona la VM `agentic-platform-ui-desktop` y pulsa **Node actions → Connect → Connect with Remote Desktop**.
+5. Entra con el usuario `Administrator` y esa contraseña.
+6. Usa los accesos del escritorio:
+
+   | Acceso | Qué abre |
+   |---|---|
+   | **Argo CD** | Estado y sincronización de cada aplicación |
+   | **Dapr Dashboard** | Apps, componentes y configuración de la flota |
+   | **Ejercicios** | Una página con el enlace de cada ejercicio publicado |
+   | **Actualizar ejercicios** | Regenera esa página si se ha publicado uno nuevo |
+
+   El usuario de Argo CD es `admin`. Su contraseña inicial se obtiene en CloudShell:
+
+   ```bash
+   kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
+   ```
+
+La conexión se corta tras 10 minutos sin actividad y a los 60 minutos, y se puede renovar. Terraform destruye esta VM junto con el laboratorio en `lab.yml down`.
+
 ## Fase 2: pestañas para la presentación
 
 | Pestaña | Vista |
@@ -111,7 +146,7 @@ Debe terminar en `OK`. Si es así, el sistema está listo.
 | AWS | EC2 → Instances, y Target Groups |
 | Grafana | [Dashboards](https://andresm98.grafana.net/dashboards), carpeta *Agentic Platform* |
 | Grafana Explore | Loki, con `{namespace="apps"}` |
-| Capturas | Argo CD y Dapr Dashboard |
+| Fleet Manager | Escritorio con Argo CD, Dapr Dashboard y Ejercicios |
 
 En Grafana, selecciona Loki `grafanacloud-andresm98-logs` y un rango de *Last 15 minutes*.
 
@@ -129,7 +164,8 @@ Ejecuta todo en CloudShell, en la carpeta del repositorio.
 | 21 | Elasticidad | Mostrar el EC2 real |
 | 26 | Resiliencia | Ataque |
 | 30 | Observabilidad | Grafana |
-| 33 | Cierre | Conclusiones |
+| 33 | Ejercicios | Aplicación de un estudiante en vivo |
+| 36 | Cierre | Conclusiones |
 
 ### Introducción
 
@@ -162,7 +198,7 @@ kubectl -n argocd get applications
 make demo N=3
 ```
 
-La demo borra un pod y altera las réplicas a mano, y el sistema se corrige solo. Enseña la **captura de Argo CD** para ilustrar la interfaz.
+La demo borra un pod y altera las réplicas a mano, y el sistema se corrige solo. Míralo **en vivo en Argo CD**, desde el escritorio remoto, en la aplicación `fleet-llm-gateway`.
 
 ### Capa: flota agéntica
 
@@ -226,9 +262,21 @@ El resultado debe ser `0`: el token falso nunca llega al modelo real.
 
 **Mensaje:** todo el sistema se ve en un solo lugar, por las 4 Golden Signals.
 
-Muestra *Aplicación (4 Golden Signals)* y *Agentes y LLM*. Enseña la **captura de Dapr Dashboard**.
+Muestra *Aplicación (4 Golden Signals)* y *Agentes y LLM*. Abre **Dapr Dashboard** en el escritorio remoto: se ven los agentes, sus sidecars y los componentes `pubsub` y `workflowstore`.
 
 LangSmith registra el 100 % de las llamadas reales, pero solo el 1 % de las simuladas. En modo simulado es normal verlo casi vacío.
+
+### Capa: ejercicios de estudiantes
+
+**Mensaje:** un estudiante publica su contenedor con un Pull Request hacia `stage`, y la plataforma lo valida, lo escanea y lo despliega con sus propios controles.
+
+Muestra en este orden:
+
+1. En GitHub, el [PR del ejercicio de prueba](https://github.com/Andresm98/03-agentic-platform-swe/pull/9) y su ejecución de `exercises.yml`.
+2. En Argo CD, en el escritorio remoto, la aplicación `exercise-prueba`.
+3. El acceso **Ejercicios** del escritorio, que abre la aplicación publicada en `/s/prueba/`.
+
+**Di:** corre sin root, con cuota de recursos y sin poder salir a Internet.
 
 ### Cierre
 
@@ -239,7 +287,7 @@ LangSmith registra el 100 % de las llamadas reales, pero solo el 1 % de las simu
 Hazlo al terminar, sin esperar a nadie.
 
 1. En [Actions → lab](https://github.com/Andresm98/03-agentic-platform-swe/actions/workflows/lab.yml), pulsa **Run workflow**, con rama `main` y acción `down`.
-2. Aprueba dos veces. El plan debe decir `0 to add, 59 to destroy`.
+2. Aprueba dos veces. El plan debe decir `0 to add` y `59 to destroy`, u 11 más si el escritorio sigue activo: se destruye con el laboratorio.
 3. Comprueba que la ejecución termine en verde, incluido `cost-check`.
 4. Comprueba en AWS que EC2 no tiene instancias en ejecución.
 
@@ -253,6 +301,7 @@ Hazlo al terminar, sin esperar a nadie.
 |---|---|
 | El `apply` falla | Lee el error y relanza `up`, con sus dos aprobaciones |
 | Las aplicaciones no llegan a `Healthy` a tiempo | Presenta con capturas y explica la arquitectura |
+| El escritorio remoto no abre | Muestra las capturas de Argo CD y Dapr, y su estado con `kubectl` |
 | Se corta CloudShell | Repite el paso 4; sigue con Grafana y AWS mientras tanto |
 | El EC2 tarda demasiado | Continúa y vuelve a él antes de cerrar |
 | `make demo` falla | Ejecuta el comando equivalente de `kubectl` y sigue |
@@ -262,7 +311,7 @@ Hazlo al terminar, sin esperar a nadie.
 
 | Pregunta | Respuesta |
 |---|---|
-| ¿Por qué no se ve Argo CD en vivo? | Las consolas administrativas nunca se exponen a Internet. Se usan por túnel |
+| ¿Por qué Argo CD va por un escritorio remoto? | Las consolas administrativas nunca se exponen a Internet: solo son accesibles dentro de la VPC |
 | ¿Por qué K3s y no EKS? | Coste y control: EKS añade unos 73 USD al mes solo por el plano de control |
 | ¿Qué pasa si cae el control plane? | Se pierde el cluster y se recrea desde Git. No es alta disponibilidad |
 | ¿Qué impide gastar el presupuesto? | Token de admisión, 3 USD en el gateway y 5 USD en OpenAI |
