@@ -1,6 +1,7 @@
 # Una Application por directorio de gitops/stage/* en la rama stage. CI crea cada directorio
 # después de publicar la imagen; al retirar un ejercicio, Argo CD elimina sus recursos.
-# El chart se lee de main: la rama stage solo aporta los values.
+# Chart y values salen de stage: Argo CD no admite dos revisiones del mismo repositorio en una
+# Application. Un cambio del chart en main llega a los ejercicios con un PR de main a stage.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -29,7 +30,7 @@ spec:
       project: stage
       sources:
         - repoURL: https://github.com/Andresm98/03-agentic-platform-swe.git
-          targetRevision: main
+          targetRevision: stage
           path: kubernetes/charts/agent-service
           helm:
             releaseName: '{{ .path.basename }}'
