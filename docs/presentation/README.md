@@ -4,6 +4,26 @@ Guía para presentar la plataforma el viernes 13 de noviembre de 2026 **solo con
 
 **Idea central:** el sistema se despliega antes de empezar, y en cada capa activas su comportamiento delante del público.
 
+## Resumen: levantar y apagar
+
+Todo se hace desde [Actions → lab](https://github.com/Andresm98/03-agentic-platform-swe/actions/workflows/lab.yml), con **Run workflow** y rama `main`.
+
+| Cuándo | Acción | Aprobaciones |
+|---|---|---|
+| **Jueves por la noche** | `lab` con `up`: crea todo | 2 |
+| **Viernes, al terminar** | `lab` con `down`: destruye todo, incluida la VM | 2 |
+
+El jueves, en este orden:
+
+1. **Antes del `up`**, cambia `LAB_TTL_HOURS` a `18` en *Settings → Secrets and variables → Actions → Variables*. Si no, `lab-reaper` lo destruirá a las 6 horas.
+2. Lanza `lab` con `up` y aprueba dos veces.
+3. Actualiza `NLB_URL` con la dirección nueva, sin saltos de línea.
+4. Cuando las 22 aplicaciones estén sanas, lanza `ui-desktop` con `up`. **Siempre después de `lab`.**
+
+El viernes, después del `down`, devuelve `LAB_TTL_HOURS` a `6`.
+
+No hace falta configurar de nuevo ningún token: están guardados en AWS y cada `up` los usa.
+
 ## Qué está comprobado
 
 Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manual; despliegue por GitOps; self-healing; una tarea completa por el NLB; KEDA escalando desde cero; un EC2 real unido por autoscaling; 2 destinos `healthy`; métricas y logs en Grafana; terminal por CloudShell; un ejercicio de estudiante publicado y accesible en `/s/prueba/`; modelo real de NVIDIA con trazas en LangSmith; y la ráfaga de la capa de resiliencia, con respuestas `429`.
@@ -11,7 +31,6 @@ Comprobado en AWS: arranque desde cero con `lab.yml up`, sin intervención manua
 | Sin comprobar | Consecuencia |
 |---|---|
 | Acceso a Dapr Dashboard desde el escritorio | Compruébalo el jueves; Argo CD y el ejercicio de estudiante ya se vieron desde él |
-| `make demo N=7` por script, desde un cluster en reposo | Pruébalo en un ensayo. El escalado real sí se comprobó, por carga |
 | Trazas distribuidas en Tempo | No las muestres sin revisarlas antes |
 | PR de un ejercicio desde un fork | Probado solo desde una rama del repositorio |
 
@@ -312,7 +331,7 @@ Muestra los tres agentes y el `pod` que atendió cada uno. Después, busca la ta
 
 **Mensaje:** escala en dos niveles: pods y máquinas, con un máximo explícito de 3 EC2 para controlar el coste.
 
-Lanza el escalado. Tarda varios minutos, y mientras tanto puedes presentar la capa de observabilidad en Grafana, que no usa esta terminal:
+Comprueba que hay 1 solo worker: tras la ráfaga de ataque o una carga, el cluster tarda unos 9 minutos en volver a 1, y la demo exige partir de ahí. Lanza el escalado; en el ensayo, las demos 7, 8 y 9 tardaron unos 2 minutos y medio. Mientras tanto, presenta la capa de observabilidad en Grafana, que no usa esta terminal:
 
 ```bash
 make demo N=7

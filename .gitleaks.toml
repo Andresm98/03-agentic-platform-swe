@@ -35,5 +35,5 @@ paths = [
 ]
 # Valores ficticios usados en ejemplos y tests.
 regexes = [
-  '''(?i)(changeme|dummy|fake|example|placeholder|xxxx+)''',
+  '''(?i)(changeme|dummy|fake|falso|example|placeholder|xxxx+)''',
 ]

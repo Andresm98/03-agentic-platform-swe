@@ -4,44 +4,51 @@
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=Andresm98_03-agentic-platform-swe&metric=alert_status)](https://sonarcloud.io/project/overview?id=Andresm98_03-agentic-platform-swe)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Laboratorio **efímero y reproducible** de una plataforma Kubernetes autogestionada (K3s sobre EC2) que ejecuta una flota de agentes de IA. Se levanta para un ensayo o una defensa pública, vive unas horas y se destruye con `terraform destroy`.
+Laboratorio **efímero y reproducible** de una plataforma Kubernetes autogestionada (K3s sobre EC2) que ejecuta una flota de agentes de IA. Se crea desde cero con GitHub Actions, se opera desde el navegador y se destruye al terminar. Cualquier estudiante puede publicar en ella su propio contenedor con un Pull Request.
 
-Los agentes son la carga que pone a prueba la plataforma: colas, reintentos, escalado y fallos parciales. Tienen una particularidad: cada llamada al modelo real cuesta dinero. Por eso una prueba de carga o un ataque se atiende con un LLM simulado y **no gasta tokens reales**.
+**El producto evaluado es la plataforma.** Los agentes son una carga de trabajo de demostración: reproducen el comportamiento de un sistema agéntico real, con decisiones de un modelo, delegación entre servicios, colas, reintentos y fallos parciales. No analizan la infraestructura en tiempo real ni son de propósito general.
+
+Un modelo real solo se usa con un token de demo: una prueba de carga o un ataque se atienden con un LLM simulado y **no consumen tokens reales**.
 
 > **Sin alta disponibilidad.** El cluster tiene un único control plane. Si ese nodo se pierde, se pierde el cluster y se recrea desde Git y Terraform. Es una decisión consciente para un laboratorio de coste mínimo, no un diseño de producción.
 
 ## Estado real
 
-Actualizado el 2026-11-08. **El laboratorio ya funciona en AWS y atiende tareas reales por el NLB.** Solo se afirma lo que tiene evidencia en la [bitácora de despliegue](docs/bitacora.md) o en el [registro de validación](docs/validation-log.md).
+Actualizado el 2026-11-09. **La plataforma se desplegó en AWS desde cero, sin pasos manuales, y funcionó de extremo a extremo.** Solo se afirma lo que tiene evidencia en la [bitácora de despliegue](docs/bitacora.md) o en el [registro de validación](docs/validation-log.md).
 
 | Área | Estado | Evidencia |
 |---|---|---|
-| Tests de las apps | ✅ Probado | Cobertura ≥ 80 % por servicio; 91,2 % en SonarCloud |
-| Arquitectura de código | ✅ Probado | 27 contratos de `import-linter` y `mypy` estricto |
-| Flota completa en `docker compose` | ✅ Probado | Tarea `completed` con 0 tokens reales |
-| Reanudación tras matar el orquestador | ✅ Probado | La tarea termina sus 3 pasos |
-| Ejercicio de ejemplo en `kind` | ✅ Probado | Rollout correcto con Pod Security `restricted` |
-| Pipeline `main` en GitHub Actions | ✅ Probado | CI, escaneo IaC, 6 imágenes y promoción GitOps |
+| Tests y arquitectura de código | ✅ Probado | Cobertura ≥ 80 % por servicio, 27 contratos de `import-linter` y `mypy` estricto |
+| Flota en `docker compose` | ✅ Probado | Tarea `completed` con 0 tokens reales, y reanudación tras matar el orquestador |
+| Pipeline `main` | ✅ Probado | CI, escaneo IaC, 6 imágenes y promoción GitOps |
 | Capa persistente de AWS | ✅ Desplegada | Terraform sin diferencias |
-| Mirror de imágenes de plataforma | ✅ Probado | 6 imágenes copiadas con su digest y descargables sin login |
-| Pruebas de carga con k6 | ✅ Probado | En AWS: 4200 peticiones, 0 % de errores HTTP y 0 tokens reales; detectaron y ayudaron a corregir un límite de capacidad |
-| `lab.yml up`: EC2, K3s y Argo CD | ✅ Probado | Nodos `Ready` y aplicaciones sincronizadas por GitOps |
-| Tarea completa por el NLB | ✅ Probado | Orquestador y 3 agentes en 23 s, con KEDA escalando desde cero |
-| Autoscaling de nodos | ✅ Probado | Bajo carga real, el ASG subió de 1 a 2, el EC2 se unió como `Ready` y el NLB tuvo 2 destinos `healthy` |
+| Mirror de imágenes | ✅ Probado | 6 imágenes copiadas con su digest y descargables sin login |
+| `lab.yml up` desde cero | ✅ Probado | 22 aplicaciones `Synced` y `Healthy`, sin intervención manual |
+| Tarea completa por el NLB | ✅ Probado | Orquestador y 3 agentes en unos 23 s, con KEDA escalando desde cero |
+| Autoscaling de nodos | ✅ Probado | El ASG subió de 1 a 2 y el nodo se unió como `Ready`, con 2 destinos `healthy` en el NLB. Sin carga, volvió solo a 1 |
+| GitOps y self-healing | ✅ Probado | Pod restaurado y cambio manual revertido en 7 s cada uno |
+| Ataque y barrera de token | ✅ Probado | Ráfaga con `429`; un token falso se queda en modo simulado |
+| Pruebas de carga con k6 | ✅ Probado | 4200 peticiones, 0 % de errores HTTP y 0 tokens reales; revelaron un límite de capacidad, ya corregido |
 | Telemetría en Grafana Cloud | ✅ Probado | Dashboards con datos de la arquitectura y logs por `task_id` en Loki |
-| Modelo real (NVIDIA, API compatible con OpenAI) | ✅ Probado | Tarea real completada por el NLB con token de demo; sin token, o con uno falso, sigue en modo simulado |
-| Trazas en LangSmith | ✅ Probado | Cada llamada real al modelo visible, con agente, tokens y latencia |
-| Flujo de ejercicios en la rama `stage` | ✅ Probado | De PR a despliegue por Argo CD, respondiendo en `/s/prueba/` |
+| Modelo real | ✅ Probado | Tareas completadas con OpenAI y con NVIDIA, solo cambiando la configuración |
+| Trazas en LangSmith | ✅ Probado | Cada llamada real visible, con agente, tokens y latencia |
+| Ejercicios de estudiantes | ✅ Probado | De PR a despliegue por Argo CD, respondiendo en `/s/prueba/` |
+| Escritorio remoto `ui-desktop` | ✅ Probado | VM creada por su pipeline; Argo CD y el ejercicio de prueba visibles desde ella |
+| Operación solo con navegador | ✅ Probado | Despliegue por GitHub Actions y comandos desde AWS CloudShell |
+
+Sin validar: el perfil local k3d, un PR de ejercicio desde un fork, las trazas distribuidas en Tempo y la degradación al agotar el presupuesto.
 
 ## Arquitectura
 
 ```mermaid
 flowchart TB
   user["Público o k6"] --> nlb["NLB :80"]
-  operator["Operador"] -->|"túnel SSM, sin SSH"| api["API de Kubernetes"]
+  operator["Operador en el navegador"] -->|"CloudShell y túnel SSM, sin SSH"| api["API de Kubernetes"]
+  operator -->|"Fleet Manager"| desktop["Escritorio Windows<br/>Solo bajo demanda"]
 
-  subgraph vpc["AWS · máximo 3 EC2"]
+  subgraph vpc["AWS · máximo 3 EC2 de cluster"]
     nlb --> traefik
+    desktop -->|"NodePort interno"| ui["Argo CD · Dapr Dashboard"]
 
     subgraph workers["ASG de workers · t3.medium · 1 a 2"]
       traefik["Traefik · rate limit"]
@@ -53,7 +60,8 @@ flowchart TB
 
     subgraph cp["Control plane · t3.large"]
       api
-      platform["CCM · Cluster Autoscaler · KEDA<br/>External Secrets · Argo CD · Dapr"]
+      ui
+      platform["CCM · Cluster Autoscaler · KEDA<br/>External Secrets · Dapr"]
       nats[("NATS JetStream")]
       redis[("Redis")]
       fake["fake-llm"]
@@ -67,7 +75,7 @@ flowchart TB
   orch --> redis
   orch --> gw
   gw -->|"simulado"| fake
-  gw -->|"solo con token de demo"| openai["Modelo real · NVIDIA"]
+  gw -->|"solo con token de demo"| model["Modelo real · NVIDIA"]
   gw -.->|"trazas LLM"| langsmith["LangSmith"]
   workers -.->|"métricas, logs y trazas"| grafana["Grafana Cloud"]
 ```
@@ -76,40 +84,40 @@ Más vistas (C4, red, secuencia de una tarea y cadena de elasticidad) en el [pla
 
 ### Cómo se resuelve una tarea
 
-1. El cliente envía `POST /tasks` y recibe `202` con un `task_id`.
-2. El orquestador abre un **Dapr Workflow** y pide al modelo la siguiente acción. **El modelo decide el flujo**, con un máximo de 6 pasos.
+1. El cliente envía `POST /tasks` con un objetivo en texto (`goal`) y recibe `202` con un `task_id`. Nadie habla directamente con un agente.
+2. El orquestador abre un **Dapr Workflow** y pide al modelo la siguiente acción. El modelo elige cada paso, guiado por su prompt y con un máximo de 6.
 3. Cada paso se delega a un agente por NATS JetStream y el resultado vuelve al workflow.
 4. Si el pod muere, el workflow continúa desde el último paso guardado en Redis. Solo se repite la llamada al modelo que estaba en curso.
-5. El estado se consulta con `GET /tasks/{id}`.
+5. El resultado se consulta con `GET /tasks/{id}`.
 
 ### La flota
 
-| Servicio | Responsabilidad | Réplicas |
+| Servicio | Responsabilidad | ¿Usa el modelo? | Réplicas |
+|---|---|---|---|
+| `orchestrator` | API pública, admisión y Dapr Workflow | Sí, en cada decisión | 1–4 |
+| `researcher` | Consulta una base de 8 documentos incluida en su imagen | Sí, para elegir el tema | 0–3 |
+| `executor` | Cálculo de CPU de un catálogo cerrado | Sí, para elegir la herramienta | 1–4 |
+| `analyst` | Puntúa el resultado con reglas deterministas | No | 0–3 |
+| `llm-gateway` | Único servicio con la API key: modo, límites, circuit breaker y telemetría | Es el puente | 2 |
+| `fake-llm` | API compatible con OpenAI, determinista y con inyección de fallos | Es el simulador | 1 |
+
+### Modelo y proveedor
+
+El gateway habla el formato de la API de OpenAI, así que el proveedor se cambia por configuración, sin tocar los agentes. El modelo actual es `nvidia/nemotron-3.5-bolt-e4b`, en el endpoint gratuito de NVIDIA.
+
+| Barrera | Mecanismo | Límite |
 |---|---|---|
-| `orchestrator` | API pública, admisión y Dapr Workflow | 1–4 |
-| `researcher` | Consulta una base de conocimiento local | 0–3 |
-| `analyst` | Puntuación determinista del resultado | 0–3 |
-| `executor` | Trabajo de CPU de un catálogo cerrado | 1–4 |
-| `llm-gateway` | Único servicio con la API key: modo, presupuesto, circuit breaker y telemetría | 2 |
-| `fake-llm` | API compatible con OpenAI, determinista y con inyección de fallos | 1 |
+| Admisión | El modo real exige `X-Demo-Token`. Sin token válido, siempre `fake-llm` | Sin token, 0 tokens reales |
+| Gateway | Limita las tareas reales. Al agotarse, degrada a `fake-llm` | 5 tareas por minuto, 50 en total y 6 llamadas por tarea |
+| Presupuesto | Reserva el gasto en NATS KV | 3 USD; con precio 0, no actúa en el endpoint gratuito |
 
-## Decisiones clave
-
-### Control del gasto en el modelo
-
-| Barrera | Mecanismo | Tope |
-|---|---|---|
-| Admisión | El modo real exige `X-Demo-Token`. El tráfico público siempre va a `fake-llm` | Sin token, 0 tokens reales |
-| Gateway | Limita las tareas reales y reserva el gasto en NATS KV. Al agotarse, degrada a `fake-llm` | 5 tareas por minuto, 50 en total y 3 USD |
-| Proveedor | Endpoint gratuito de NVIDIA, con `nemotron-3.5-bolt-e4b` | Sin coste; sus precios en el gateway son 0 |
-
-Cada tarea admite como máximo 6 pasos, y las respuestas se limitan a 200–300 tokens.
+Las respuestas se limitan a 200–300 tokens por llamada.
 
 ### Elasticidad en dos niveles
 
 | Nivel | Componente | Señal | Límite |
 |---|---|---|---|
-| Pods | KEDA y HPA | Profundidad de la cola JetStream y CPU | Réplicas por servicio (tabla anterior) |
+| Pods | KEDA y HPA | Profundidad de la cola JetStream y CPU | Réplicas por servicio |
 | Nodos | Cluster Autoscaler | Pods en `Pending` | ASG de 1 a 2 workers |
 | Tráfico | AWS CCM y NLB | Registro de los nodos | NodePort `30080` |
 
@@ -129,16 +137,28 @@ flowchart LR
 
 GitHub Actions no toca el cluster: solo escribe en Git. Todo lo despliega Argo CD (app-of-apps con sync-waves, `prune` y `selfHeal`). Las acciones se fijan por SHA, las imágenes por tag de commit o digest, y nunca se usa `latest`.
 
+| Workflow | Función |
+|---|---|
+| `main` | CI, escaneo, imágenes y promoción GitOps |
+| `lab` | Crea o destruye el laboratorio, con aprobación |
+| `ui-desktop` | Crea o destruye el escritorio remoto, con aprobación |
+| `lab-reaper` | Destruye el laboratorio si supera `LAB_TTL_HOURS` |
+| `observability` | Dashboards y datasource de Grafana Cloud |
+| `exercises` | Valida, publica y despliega los ejercicios de la rama `stage` |
+| `mirror-images` | Copia por digest las imágenes de Docker Hub a GHCR |
+| `post-deploy` | Prueba contra el NLB cada despliegue de Argo CD |
+
 ### Seguridad
 
-- **Sin credenciales largas en CI:** GitHub entra en AWS por OIDC, con un rol por environment.
+- **Sin credenciales largas en CI:** GitHub entra en AWS por OIDC, con un rol por environment y coincidencia exacta del `sub`.
 - **Sin SSH ni API server público:** el acceso es por AWS Systems Manager.
 - **Secretos solo en SSM** (`SecureString`), sincronizados con External Secrets. Nunca en Git, en imágenes o en `user-data`.
+- **Consolas nunca expuestas:** Argo CD y Dapr solo son accesibles dentro de la VPC.
 - **Nodos:** IMDSv2 obligatorio y un rol IAM por controlador.
 - **Contenedores:** distroless, sin root y con sistema de archivos de solo lectura donde aplica.
 - **Red:** NetworkPolicy default-deny y mTLS entre agentes con Dapr.
 - **Superficie pública:** solo `/tasks` y los ejercicios en `/s/<nombre>/`.
-- **Coste:** AWS Budget, `cost-check` tras cada apagado y `lab-reaper`, que destruye el laboratorio pasadas 6 horas.
+- **Coste:** AWS Budget, `cost-check` tras cada apagado y `lab-reaper`.
 
 ### Arquitectura del código
 
@@ -148,52 +168,66 @@ Cada servicio sigue Clean/Hexagonal, y CI impide que las dependencias apunten ha
 |---|---|
 | `domain/` | Python puro: entidades y políticas |
 | `application/` | Casos de uso y puertos |
-| `adapters/` | FastAPI, Dapr, OpenAI, NATS y telemetría |
+| `adapters/` | FastAPI, Dapr, API del modelo, NATS y telemetría |
 | `bootstrap/` | Composition root con inyección de dependencias |
 
 Detalles en [`apps/README.md`](apps/README.md).
 
 ## Interfaces
 
-Solo el orquestador y los ejercicios son públicos. El resto se abre desde tu máquina, con el túnel activo:
-
-```bash
-make tunnel                      # en una terminal, y déjala abierta
-export KUBECONFIG=.lab/kubeconfig # en otra
-```
+Solo el orquestador y los ejercicios son públicos.
 
 | Interfaz | Acceso | Muestra |
 |---|---|---|
-| API de tareas | `http://<nlb>/tasks` | Punto de entrada público |
+| API de tareas | `http://<nlb>/tasks` | Entrada pública de tareas |
 | Ejercicios | `http://<nlb>/s/<nombre>/` | Contenedores de estudiantes |
-| Argo CD | `kubectl -n argocd port-forward svc/argo-cd-argocd-server 8080:80` → <http://localhost:8080> | Estado de cada aplicación |
-| Dapr Dashboard | `kubectl -n dapr-system port-forward svc/dapr-dashboard 8081:8080` → <http://localhost:8081> | Apps, componentes y configuración de la flota |
+| Argo CD | Escritorio remoto, o `port-forward` local | Estado de cada aplicación |
+| Dapr Dashboard | Escritorio remoto, o `port-forward` local | Apps, componentes y configuración |
 | Grafana Cloud | Tu stack | 6 dashboards organizados por las 4 Golden Signals |
 | LangSmith | Proyecto `agentic-platform` | Llamadas al modelo: reales al 100 %, simuladas al 1 % |
 
-Contraseña inicial de Argo CD (usuario `admin`):
+**Desde cualquier navegador:** el workflow `ui-desktop` crea una VM Windows dentro de la VPC, accesible con Fleet Manager, con accesos directos a Argo CD, Dapr Dashboard y los ejercicios. No tiene puertos de entrada. Los pasos están en la [guía de presentación](docs/presentation/README.md#abrir-las-interfaces-argo-cd-dapr-y-ejercicios).
+
+**Desde un equipo con las herramientas instaladas**, con el túnel activo:
 
 ```bash
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+make tunnel                       # en una terminal, y déjala abierta
+export KUBECONFIG=.lab/kubeconfig # en otra
+kubectl -n argocd port-forward svc/argo-cd-argocd-server 8080:80
+kubectl -n dapr-system port-forward svc/dapr-dashboard 8081:8080
 ```
 
 ## Ejercicios de estudiantes
 
-Un estudiante puede publicar su propia aplicación en la plataforma, en cualquier lenguaje, con un Pull Request hacia la rama `stage`:
+Un estudiante publica su aplicación, en cualquier lenguaje, con un Pull Request hacia la rama `stage`:
 
 ```
 exercises/<tu-nombre>/     Copia de exercises/_ejemplo (Go), con Dockerfile y exercise.yaml
         │ Pull Request a stage, revisado por el instructor
         ▼
 CI valida, construye, escanea y prueba en un cluster temporal
-        │
+        │ Al fusionar, publica la imagen y escribe gitops/stage/<tu-nombre>/
         ▼
 Argo CD lo despliega en el namespace stage → http://<nlb>/s/<tu-nombre>/
 ```
 
-Hay un máximo de 3 ejercicios a la vez. Reciben tráfico público, pero no pueden salir a Internet, y corren con Pod Security `restricted` y cuota de recursos. La guía está en [`exercises/README.md`](exercises/README.md).
+Caben hasta 3 ejercicios a la vez. Reciben tráfico público, no pueden salir a Internet y corren con Pod Security `restricted` y cuota de recursos. La guía está en [`exercises/README.md`](exercises/README.md).
+
+`main` y `stage` no son iguales a propósito: `stage` añade los ejercicios. Un cambio del chart, de `exercises.yml` o del validador se lleva a `stage` con un PR desde `main`.
 
 ## Puesta en marcha
+
+### En AWS
+
+La [guía de configuración](docs/SETUP.md) explica, en orden, cada cuenta, token y permiso. La capa persistente (estado de Terraform, secretos, roles OIDC y Budget) se crea una sola vez. Después:
+
+1. En GitHub Actions, ejecuta `lab` con `up` y aprueba dos veces.
+2. Espera a que las 22 aplicaciones estén sanas, entre 30 y 45 minutos.
+3. Actualiza la variable `NLB_URL`, sin saltos de línea.
+4. Si quieres las interfaces en el navegador, ejecuta `ui-desktop` con `up`.
+5. Al terminar, ejecuta `lab` con `down`: destruye también el escritorio y comprueba que no quede nada facturable.
+
+`make up` y `make down` hacen lo mismo desde una máquina, como respaldo. Para operar solo con navegador, sigue la [guía de presentación](docs/presentation/README.md).
 
 ### En local, sin coste
 
@@ -201,49 +235,47 @@ Requiere Docker y Git Bash en Windows. Usa siempre `fake-llm`.
 
 ```bash
 make compose-up
-bash apps/compose/smoke.sh       # envía una tarea y comprueba que termina sin tokens reales
+bash apps/compose/smoke.sh
 make test
 make compose-down
 ```
 
-`make local-up` crea además un cluster k3d con Argo CD. Ese perfil **no se ha validado**: la plataforma completa supera los recursos de un equipo de escritorio, así que se validó directamente en AWS.
+`make local-up` crea un cluster k3d con Argo CD, pero ese perfil **no se ha validado**: la plataforma completa supera los recursos de un equipo de escritorio.
 
-### En AWS
-
-La [guía de configuración](docs/SETUP.md) explica, en orden, cada cuenta, token y permiso que hace falta. Con todo preparado:
+### Enviar una tarea
 
 ```bash
-gh workflow run lab.yml --ref main -f action=up     # pide tu aprobación dos veces
-gh workflow run lab.yml --ref main -f action=down   # destruye y comprueba que no quede nada
+curl -s -X POST "$NLB_URL/tasks" -H 'content-type: application/json' \
+  -d '{"goal":"Explica el autoscaling de la flota","complexity":2}'
 ```
 
-`make up` y `make down` hacen lo mismo desde tu máquina, como respaldo.
+`goal` admite hasta 2000 caracteres, y `complexity`, de 1 a 10. Con la cabecera `X-Demo-Token` válida, la tarea usa el modelo real y aparece en LangSmith.
 
 ### Herramientas
 
-Git y Bash, GNU `make`, Docker, `kubectl`, Helm 4, k3d, Terraform ≥ 1.11, AWS CLI v2 con `session-manager-plugin`, `gh`, `jq`, `yq` y `uv`. Las versiones fijadas están en [`docs/versions.md`](docs/versions.md).
+Para operar desde un equipo propio: Git y Bash, GNU `make`, Docker, `kubectl`, Helm 4, k3d, Terraform ≥ 1.11, AWS CLI v2 con `session-manager-plugin`, `gh`, `jq`, `yq` y `uv`. Las versiones fijadas están en [`docs/versions.md`](docs/versions.md).
 
 ## Escenarios de demo
 
-Cada escenario es un script con comprobaciones automáticas: `make demo N=<n>`. En AWS pasaron los escenarios 1 a 6, 8 y 9; el escalado del 7 se comprobó a mano. Los resultados están en el [registro de validación](docs/validation-log.md). La columna *Local* indica para qué perfil se diseñó cada uno.
+Cada escenario es un script con comprobaciones automáticas: `make demo N=<n>`. Los resultados están en el [registro de validación](docs/validation-log.md).
 
-| # | Escenario | Qué comprueba | Local |
+| # | Escenario | Qué comprueba | Resultado en AWS |
 |---|---|---|---|
-| 1 | Despliegue | Apps `Synced/Healthy` y respuesta 200 | Sí |
-| 2 | Sync GitOps | Un commit llega a los pods | Sí |
-| 3 | Self-healing | Réplica restaurada y drift revertido | Sí |
-| 4 | Tráfico | Rampa k6, RPS y p95 | Sí |
-| 5 | HPA | Más de 1 réplica | Sí |
-| 6 | Pending | `FailedScheduling: Insufficient cpu` | Sí |
-| 7 | Cluster Autoscaler | `TriggeredScaleUp` y `DesiredCapacity=2` | No |
-| 8 | Join de K3s | Nodo `Ready` con `providerID` válido | No |
-| 9 | Registro en el NLB | Target `healthy` | No |
-| 10 | Distribución | Reparto por pod | Sí |
-| 11 | Scale-down | Instancia terminada, Node y target eliminados | No |
-| 12 | Grafana | Series recientes en la API | No |
-| 13 | Ataque | `429`, ASG ≤ 2 y **0 tokens reales** | Sí |
-| 14 | Caos del LLM | Circuito abierto y ninguna tarea perdida | Sí |
-| 15 | Modelo real | Tokens reales con token de demo y degradación | No |
+| 1 | Despliegue | Apps `Synced/Healthy` y respuesta 202 | ✅ |
+| 2 | Sync GitOps | Un commit llega a los pods | ✅ |
+| 3 | Self-healing | Réplica restaurada y drift revertido | ✅ |
+| 4 | Tráfico | Rampa k6, RPS y p95 | ✅ Sin errores HTTP; saturó el cluster |
+| 5 | HPA | Más de 1 réplica | ✅ |
+| 6 | Pending | `FailedScheduling: Insufficient cpu` | ✅ |
+| 7 | Cluster Autoscaler | `TriggeredScaleUp` y `DesiredCapacity=2` | ✅ |
+| 8 | Join de K3s | Nodo `Ready` con `providerID` válido | ✅ |
+| 9 | Registro en el NLB | Destinos `healthy` | ✅ |
+| 10 | Distribución | Reparto por pod | ⚠️ Falló con el cluster saturado; sin repetir |
+| 11 | Scale-down | Instancia terminada y target eliminado | ⚠️ Observado sin carga; script sin ejecutar |
+| 12 | Grafana | Series recientes en la API | ⏳ Comprobado a mano en los dashboards |
+| 13 | Ataque | `429`, ASG ≤ 2 y 0 tokens reales | ⚠️ Ráfaga manual con `429`; script sin ejecutar |
+| 14 | Caos del LLM | Circuito abierto y ninguna tarea perdida | ⏳ Sin ejecutar |
+| 15 | Modelo real | Tokens reales con token de demo | ✅ |
 
 ## Costes
 
@@ -251,13 +283,13 @@ Estimación con precios on-demand de `us-east-1`. Aún no se ha contrastado con 
 
 | Concepto | Estimación |
 |---|---|
-| Laboratorio encendido | ~0,19–0,23 USD/h |
-| Ensayo o defensa de ~3 h | ~0,7 USD |
+| Laboratorio encendido | ~0,20 USD/h |
+| Escritorio remoto | Unos céntimos por hora más |
+| Una noche encendido, 14 h | ~2,50 USD |
 | Capa persistente | < 0,05 USD/mes |
 | GitHub Actions, GHCR y Grafana Cloud | 0, en planes gratuitos |
 | Carga, ataque y caos con `fake-llm` | 0 |
 | Modelo real, con el endpoint gratuito de NVIDIA | 0 |
-| **Total del proyecto** (2 ensayos + defensa) | **≈ 3–5 USD** |
 
 Nada de lo que corre en el cluster crea recursos de AWS: sin volúmenes EBS dinámicos, NAT ni Elastic IP.
 
@@ -269,22 +301,24 @@ Nada de lo que corre en el cluster crea recursos de AWS: sin volúmenes EBS din�
 | Docker Hub | GHCR y mirror por digest | Sus límites de pull podrían bloquear el escalado en plena demo |
 | Sin KEDA en el camino crítico | KEDA con cola y CPU | La CPU no refleja la carga de un agente LLM |
 | Evitar componentes extra | Dapr y Redis | Orquestación durable, trazas automáticas y mTLS |
-| Sin LLM externos | Modelo externo solo en modo protegido | Demostrar un modelo real con gasto acotado |
+| Sin LLM externos | Modelo externo solo en modo protegido | Demostrar un modelo real con uso acotado |
 | CD desde GitHub Actions | CD con Argo CD | GitOps puro, sin exponer el API server |
 
 La justificación completa está en los [ADRs](docs/adrs/).
 
 ## Limitaciones conocidas
 
-- Un único control plane; el plano de control de Dapr, NATS y Redis también tienen una sola réplica.
+- Un único control plane; NATS y Redis también tienen una sola réplica.
+- Los agentes son una carga de demostración, con herramientas fijas: no consultan el estado real de la infraestructura.
 - Sin TLS en el NLB porque no hay dominio. El tráfico público viaja por HTTP.
 - Los nodos tienen IP pública para evitar el coste de un NAT. Los Security Groups limitan la entrada.
+- La capacidad máxima es de 2 workers: una carga sostenida puede saturarlos, y la API responde `503` hasta recuperarse.
+- Tras una ráfaga, el cluster tarda unos 9 minutos en volver a 1 worker.
 - Las pruebas de carga usan `fake-llm`: validan la plataforma, no la calidad del modelo.
+- En LangSmith, cada llamada es una traza independiente: el recorrido de una tarea se agrupa por su `task_id`.
 - Sonar analiza solo `apps/`; la infraestructura se revisa con Checkov, tflint y shellcheck.
 - La URL del NLB cambia en cada despliegue.
-- El perfil local k3d no se validó, por falta de recursos en un equipo de escritorio. La validación se hizo en AWS.
-- La bajada automática de nodos (scale-down) no se comprobó; el laboratorio se destruye al terminar cada sesión.
-- La capacidad máxima es de 2 workers: una carga sostenida puede saturarlos y la API responde `503` hasta recuperarse.
+- El perfil local k3d no se validó, por falta de recursos en un equipo de escritorio.
 
 ## Estructura del repositorio
 
@@ -297,20 +331,22 @@ La justificación completa está en los [ADRs](docs/adrs/).
 | [`exercises/`](exercises/) | Ejemplo y guía para estudiantes |
 | [`observability/`](observability/) | Dashboards y Terraform de Grafana Cloud |
 | [`scripts/`](scripts/) | Demos, perfil local y validador de ejercicios |
-| [`.github/workflows/`](.github/workflows/) | CI, imágenes, promoción, ciclo de vida del laboratorio y ejercicios |
+| [`.github/workflows/`](.github/workflows/) | Pipelines de la tabla anterior |
 
 ## Documentación
 
 | Documento | Para qué sirve |
 |---|---|
+| [Guía de presentación](docs/presentation/README.md) | Levantar, demostrar y apagar solo con un navegador |
+| [Uso en vivo](docs/live-use.md) | Seguir el sistema capa a capa desde un equipo propio |
 | [Guía de configuración](docs/SETUP.md) | Preparar cuentas, tokens y permisos |
 | [Bitácora de despliegue](docs/bitacora.md) | Qué se ha hecho, comprobado y corregido |
+| [Registro de validación](docs/validation-log.md) | Evidencia de cada prueba |
 | [Plan de implementación](docs/IMPLEMENTATION_PLAN.md) | Diseño completo y diagramas |
 | [ADR-0001](docs/adrs/0001-plataforma-bootstrap-y-ciclo-de-vida.md) · [ADR-0002](docs/adrs/0002-identidad-credenciales-y-elasticidad.md) | Decisiones y su justificación |
 | [Contratos](docs/CONTRACTS.md) | Nombres e interfaces entre capas |
 | [Versiones](docs/versions.md) | Versiones fijadas |
 | [Runbook](docs/runbook.md) | Diagnóstico por fase |
-| [Registro de validación](docs/validation-log.md) | Evidencia de cada prueba |
 
 ## Licencia
 

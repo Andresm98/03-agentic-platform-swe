@@ -103,6 +103,15 @@ Nota: `docker compose restart` no sirve para esta prueba. Con `network_mode: ser
 
 Sin probar: `exercises.yml` en GitHub Actions (no hay actionlint local), ApplicationSet, `AppProject`, `ValidatingAdmissionPolicy`, cuota y Traefik con prefijo en un cluster con Argo CD.
 
+## Escalado de nodos desde reposo (2026-11-09)
+
+| Comprobación | Resultado |
+|---|---|
+| Scale-down automático | OK: ASG de 2 a 1 y 1 destino `healthy`, 9 minutos después de una ráfaga de 300 peticiones |
+| Demo 7 desde 1 worker | OK: 6 asserts, `DesiredCapacity` de 1 a 2 |
+| Demo 8 | OK: 5 asserts, nodo nuevo `Ready` con `providerID` válido |
+| Demo 9 | OK: 3 asserts, 2 destinos `healthy` |
+
 ## Modelo real (2026-11-09)
 
 | Comprobación | Resultado |
