@@ -1,0 +1,29 @@
+# Generado por .github/workflows/exercises.yml. No lo edites a mano.
+image:
+  repository: ghcr.io/andresm98/agentic-platform/exercises
+  tag: prueba-a03488c57783d489ca0019a89c808966f1c844db
+replicaCount: 1
+containerPort: 8000
+terminationGracePeriodSeconds: 15
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits: { cpu: 100m, memory: 128Mi }
+dapr:
+  enabled: false
+keda:
+  enabled: false
+pdb:
+  enabled: false
+externalSecret:
+  enabled: false
+networkPolicy:
+  enabled: true
+  ingress:
+    traefik: true
+  egress:
+    daprControlPlane: false
+    otlp: false
+ingress:
+  enabled: true
+  path: /s/prueba
+  middlewares: traefik-rate-limit@kubernetescrd,traefik-body-limit@kubernetescrd,traefik-strip-exercise-prefix@kubernetescrd
