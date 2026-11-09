@@ -13,7 +13,7 @@ Comprobado el 8 de noviembre en AWS: despliegue por GitOps, self-healing, una ta
 | `lab.yml up` desde cero con las correcciones de ese día | Lanza con margen: 2 horas antes |
 | Demos con k6 desde CloudShell | La capa de ataque tiene una alternativa sin k6 |
 | Modelo real y LangSmith | Opcional, al final |
-| Publicar un ejercicio por `stage` | Fuera del guion, salvo que lo pruebes antes |
+| Ejercicio `prueba` desplegado en el cluster | Ya está publicado; comprueba `$NLB_URL/s/prueba/` en el próximo `up` antes de mostrarlo |
 
 ## Antes del viernes, desde la laptop
 
@@ -90,7 +90,7 @@ kubectl get nodes
 kubectl -n argocd get applications
 ```
 
-**5. Espera a que todo esté sano.** Repite el último comando hasta ver **20 aplicaciones `Synced` y `Healthy`**. Puede tardar 30-45 minutos.
+**5. Espera a que todo esté sano.** Repite el último comando hasta ver **21 aplicaciones `Synced` y `Healthy`**, incluida `exercise-prueba`. Puede tardar 30-45 minutos.
 
 **6. Compruébalo:**
 

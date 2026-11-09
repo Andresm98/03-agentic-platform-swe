@@ -214,7 +214,7 @@ La dirección cambia en cada despliegue. Para el túnel y las interfaces, usa `m
 ## 12. Ejercicios de estudiantes
 
 1. La rama `stage` ya existe desde el paso 11.
-2. Protege `stage` con un *ruleset*: PR con revisión obligatoria y **GitHub Actions en la lista de bypass**, porque CI escribe en `gitops/stage/`.
+2. Protege `stage` con un *ruleset* que bloquee borrado y force-push. No exijas PR: en un repositorio personal, GitHub Actions no puede estar en la lista de bypass, y `promote` escribe directamente en `gitops/stage/`. Los estudiantes no tienen escritura: solo pueden proponer cambios por PR desde un fork.
 3. Tras publicar el primer ejercicio, haz público el paquete `exercises`.
 4. Cuando cambie un workflow en `main`, llévalo a `stage` con un PR de `main` a `stage`.
 

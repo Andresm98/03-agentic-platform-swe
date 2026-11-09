@@ -103,6 +103,19 @@ Nota: `docker compose restart` no sirve para esta prueba. Con `network_mode: ser
 
 Sin probar: `exercises.yml` en GitHub Actions (no hay actionlint local), ApplicationSet, `AppProject`, `ValidatingAdmissionPolicy`, cuota y Traefik con prefijo en un cluster con Argo CD.
 
+## Flujo de ejercicios en GitHub (2026-11-08)
+
+PR #9, `exercises/prueba`, desde una rama del propio repositorio.
+
+| Etapa | Resultado | Evidencia |
+|---|---|---|
+| `plan` en el PR | OK | `changed=["prueba"]` |
+| `verify` | OK | Build con tests de Go, Trivy con 0 CRITICAL y `GET /healthz` 200 en `kind` |
+| `publish` al fusionar | OK | Imagen `exercises:prueba-a03488c...` en GHCR, descargable sin login |
+| `promote` | OK | Commit del bot con `gitops/stage/prueba/values.yaml` |
+
+Sin probar: un PR desde un fork, y el despliegue real en el cluster por Argo CD con su acceso en `/s/prueba/`.
+
 ## Escenarios de demo en AWS (2026-11-08)
 
 Commit `28f30ec`, modo simulado, carga desde la máquina del operador hacia el NLB.
