@@ -26,7 +26,7 @@ jobs:
         with:
           ref: main
       - name: Actualiza image.tag de cada servicio
-        uses: mikefarah/yq@a4330671f17776618660a419ab2531e4f4dc48b6 # v4.54.2
+        uses: mikefarah/yq@f2944b823f84906a127dbd29e4c2a3e60c4e550e # v4.54.3
         env:
           TAG: ${{ inputs.tag }}
         with:
@@ -41,7 +41,7 @@ jobs:
             gitops/apps/fake-llm/values.yaml;
             do yq -i '.image.tag = strenv(TAG)' "$f" || exit 1; done
       - name: Actualiza la imagen del Job de JetStream
-        uses: mikefarah/yq@a4330671f17776618660a419ab2531e4f4dc48b6 # v4.54.2
+        uses: mikefarah/yq@f2944b823f84906a127dbd29e4c2a3e60c4e550e # v4.54.3
         env:
           TAG: ${{ inputs.tag }}
         with:
